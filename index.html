@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101827">
+<title>Territory IO</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101827;color:#eef4ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;min-height:100vh;justify-content:center;align-items:center;padding:14px}
+.app{width:min(100%,620px)}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}h1{font-size:22px;margin:0;letter-spacing:.5px}.stats{display:flex;gap:8px}.pill{background:#202d40;border:1px solid #34445d;border-radius:12px;padding:7px 10px;font-size:13px}
+.panel{background:#182438;border:1px solid #2c3d57;border-radius:18px;padding:10px;box-shadow:0 14px 40px #0005}
+canvas{display:block;width:100%;aspect-ratio:1/1;background:#0d1726;border-radius:12px;touch-action:none}
+.bottom{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}.hint{font-size:12px;color:#a9bad2;line-height:1.4;flex:1;min-width:160px}
+button{border:0;border-radius:12px;padding:11px 15px;background:#36c98b;color:#082016;font-weight:800;font-size:14px}
+.pad{display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,38px);gap:4px;margin:12px auto 0;width:max-content}.pad button{padding:0;background:#293a53;color:#fff;font-size:18px;touch-action: manipulation}.pad .up{grid-column:2}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
+.overlay{font-size:13px;color:#b8c8dc;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+<header><h1>🟩 TERRITORY IO</h1><div class="stats"><div class="pill">Захват: <b id="score">0%</b></div><div class="pill">Рекорд: <b id="best">0%</b></div></div></header>
+<div class="panel">
+<canvas id="game" width="600" height="600" aria-label="Игровое поле"></canvas>
+<div class="bottom"><div class="hint">Веди игрока за пределы своей территории, замыкай контур и расширяй владения. Край поля — безопасная стена, касание границы не убивает.</div><button id="restart">Заново</button></div>
+<div class="pad"><button class="up" data-dir="up">▲</button><button class="left" data-dir="left">◀</button><button class="down" data-dir="down">▼</button><button class="right" data-dir="right">▶</button></div>
+<div class="overlay" id="message">Управление: стрелки, WASD, свайп или кнопки.</div>
+</div></div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const N=30,CELL=20,EMPTY=0,ME=1,ENEMY=2;
+let board,player,trail,bots,tickTimer,score=0,best=Number(localStorage.getItem('territoryBest')||0),running=true,dir={x:1,y:0},nextDir={x:1,y:0},step=0;
+document.getElementById('best').textContent=best+'%';
+function fresh(){
+ board=Array.from({length:N},()=>Array(N).fill(EMPTY));
+ for(let y=12;y<18;y++)for(let x=3;x<9;x++)board[y][x]=ME;
+ player={x:8,y:14};trail=[];dir={x:1,y:0};nextDir={x:1,y:0};running=true;
+ bots=[{x:22,y:7,dx:-1,dy:0,color:'#ff647c'},{x:22,y:23,dx:0,dy:-1,color:'#ffc45c'},{x:7,y:24,dx:1,dy:0,color:'#a78bfa'}];
+ score=0;updateScore();document.getElementById('message').textContent='Захватывай территорию и избегай следов соперников.';
+ draw();
+}
+function updateScore(){let owned=board.flat().filter(v=>v===ME).length;score=Math.round(owned/(N*N)*100);document.getElementById('score').textContent=score+'%';if(score>best){best=score;localStorage.setItem('territoryBest',best);document.getElementById('best').textContent=best+'%';}}
+function setDirection(d){const dirs={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};let v=dirs[d];if(!v)return;if(v.x===-dir.x&&v.y===-dir.y)return;nextDir=v;}
+function capture(){
+ // Claim the trail, then fill empty regions that cannot reach the board edge.
+ for(const p of trail)board[p.y][p.x]=ME;
+ const seen=Array.from({length:N},()=>Array(N).fill(false)),q=[];
+ for(let x=0;x<N;x++){if(board[0][x]===EMPTY){seen[0][x]=true;q.push([x,0]);}if(board[N-1][x]===EMPTY){seen[N-1][x]=true;q.push([x,N-1]);}}
+ for(let y=0;y<N;y++){if(board[y][0]===EMPTY&&!seen[y][0]){seen[y][0]=true;q.push([0,y]);}if(board[y][N-1]===EMPTY&&!seen[y][N-1]){seen[y][N-1]=true;q.push([N-1,y]);}}
+ for(let i=0;i<q.length;i++){let [x,y]=q[i];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){let nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<N&&ny<N&&!seen[ny][nx]&&board[ny][nx]===EMPTY){seen[ny][nx]=true;q.push([nx,ny]);}}}
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===EMPTY&&!seen[y][x])board[y][x]=ME;
+ trail=[];updateScore();
+}
+function lose(){trail=[];player={x:7,y:14};dir={x:1,y:0};nextDir=dir;document.getElementById('message').textContent='След оборвался! Попробуй ещё раз.';draw();}
+function movePlayer(){
+ dir=nextDir;
+ let nx=player.x+dir.x,ny=player.y+dir.y;
+ // The border is a wall: stop at it, never die from touching it.
+ if(nx<0||ny<0||nx>=N||ny>=N){return;}
+ if(bots.some(b=>b.x===nx&&b.y===ny)){lose();return;}
+ if(board[ny][nx]===ENEMY){lose();return;}
+ player={x:nx,y:ny};
+ if(board[ny][nx]===ME){if(trail.length){capture();document.getElementById('message').textContent='Отлично! Территория захвачена.';} }
+ else{
+  if(trail.some(p=>p.x===nx&&p.y===ny)){lose();return;}
+  trail.push({x:nx,y:ny});
+  if(trail.length>N*1.8){lose();return;}
+ }
+}
+function moveBots(){
+ bots.forEach((b,i)=>{
+  if(Math.random()<.23){let opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(v=>!(v[0]===-b.dx&&v[1]===-b.dy));let v=opts[Math.floor(Math.random()*opts.length)];b.dx=v[0];b.dy=v[1];}
+  let nx=b.x+b.dx,ny=b.y+b.dy;if(nx<0||ny<0||nx>=N||ny>=N){b.dx=-b.dx;b.dy=-b.dy;nx=b.x+b.dx;ny=b.y+b.dy;}
+  if(board[ny][nx]===ME||trail.some(p=>p.x===nx&&p.y===ny)){b.dx=-b.dx;b.dy=-b.dy;return;}
+  b.x=nx;b.y=ny;
+ });
+}
+function draw(){
+ ctx.clearRect(0,0,600,600);ctx.fillStyle='#0d1726';ctx.fillRect(0,0,600,600);
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  let v=board[y][x];if(v===EMPTY)continue;
+  ctx.fillStyle=v===ME?'#27c987':'#ff647c';ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);
+ }
+ ctx.strokeStyle='#1d2b40';ctx.lineWidth=1;for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,600);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(600,i*CELL);ctx.stroke();}
+ trail.forEach(p=>{ctx.fillStyle='#b5ffe0';ctx.fillRect(p.x*CELL+2,p.y*CELL+2,CELL-4,CELL-4);});
+ bots.forEach(b=>{ctx.fillStyle=b.color;ctx.beginPath();ctx.arc(b.x*CELL+10,b.y*CELL+10,7,0,Math.PI*2);ctx.fill();});
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x*CELL+10,player.y*CELL+10,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#123';ctx.lineWidth=2;ctx.stroke();
+}
+function stepGame(){if(!running)return;movePlayer();if(step++%2===0)moveBots();draw();}
+document.addEventListener('keydown',e=>{let map={ArrowUp:'up',w:'up',ArrowDown:'down',s:'down',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'};if(map[e.key]){e.preventDefault();setDirection(map[e.key]);}});
+document.querySelectorAll('[data-dir]').forEach(btn=>{btn.addEventListener('pointerdown',e=>{e.preventDefault();setDirection(btn.dataset.dir);});});
+let touch=null;canvas.addEventListener('touchstart',e=>{let t=e.changedTouches[0];touch={x:t.clientX,y:t.clientY};},{passive:true});
+canvas.addEventListener('touchend',e=>{if(!touch)return;let t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;if(Math.max(Math.abs(dx),Math.abs(dy))>12)setDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));touch=null;},{passive:true});
+document.getElementById('restart').addEventListener('click',fresh);
+fresh();setInterval(stepGame,125);
+})();
+</script>
+</body>
+</html>
