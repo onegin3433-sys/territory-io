@@ -490,7 +490,6 @@ function draw(){
    ctx.strokeStyle='#aebdce';ctx.lineWidth=1.6;ctx.beginPath();
    ctx.moveTo(-5,-28);ctx.lineTo(-3,-25);ctx.moveTo(2,-29);ctx.lineTo(3,-26);ctx.stroke();
    ctx.restore();
-  }
   }else{
    ctx.beginPath();ctx.arc(p.x,p.y,30,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();ctx.lineWidth=9;ctx.strokeStyle='#f4f7ff';ctx.stroke();
    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+Math.cos(p.angle)*51,p.y+Math.sin(p.angle)*51);ctx.strokeStyle='#102033';ctx.lineWidth=9;ctx.stroke();
