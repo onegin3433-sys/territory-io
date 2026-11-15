@@ -4,138 +4,201 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#101827">
-<title>Territory IO</title>
+<title>Territory IO — Arena</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101827;color:#eef4ff;font-family:system-ui,sans-serif;min-height:100vh;padding:6px;display:flex;justify-content:center}
-.app{width:min(100%,760px);margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:3px 2px 8px}
-h1{font-size:clamp(17px,4.5vw,23px);margin:0}.stats{display:flex;gap:5px}.pill{background:#202d40;border:1px solid #34445d;border-radius:10px;padding:6px 8px;font-size:clamp(11px,3vw,13px);white-space:nowrap}
-.panel{background:#182438;border:1px solid #2c3d57;border-radius:15px;padding:6px;box-shadow:0 12px 34px #0005}
-canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;background:#0d1726;border-radius:10px;touch-action:none}
-.bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}.hint{font-size:12px;color:#a9bad2;line-height:1.35;flex:1;min-width:175px}
-button{border:0;border-radius:11px;padding:10px 14px;background:#36c98b;color:#082016;font-weight:800;font-size:14px}
-.pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,38px);gap:4px;margin:9px auto 0;width:max-content}.pad button{padding:0;background:#293a53;color:#fff;font-size:18px;touch-action:manipulation}
-.pad .up{grid-column:2}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
-.overlay{font-size:12px;color:#b8c8dc;text-align:center;margin:7px 0 2px}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#0d1523;color:#eef4ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{display:flex;justify-content:center;padding:8px}.app{width:min(100%,760px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 2px 9px}h1{font-size:clamp(17px,4vw,23px);margin:0}
+.stats{display:flex;gap:5px}.pill{background:#1b2a40;border:1px solid #344761;border-radius:10px;padding:6px 9px;font-size:12px;white-space:nowrap}
+.stage{position:relative;background:#111d30;border:1px solid #344761;border-radius:16px;padding:6px;box-shadow:0 12px 36px #0007}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;touch-action:none}
+#joystick{position:absolute;right:22px;bottom:22px;width:116px;height:116px;border-radius:50%;background:#17263abf;border:2px solid #a8bfd455;touch-action:none;display:grid;place-items:center;user-select:none}
+#knob{width:48px;height:48px;border-radius:50%;background:#d8e8f7d9;border:2px solid #fff;box-shadow:0 3px 12px #0008;pointer-events:none}
+.bottom{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:10px 2px 0;flex-wrap:wrap}.hint{font-size:12px;color:#aebed2;line-height:1.35;flex:1;min-width:190px}
+button{border:0;border-radius:11px;padding:10px 14px;background:#32cf8b;color:#062116;font-weight:800;font-size:14px}
+#message{text-align:center;color:#b7c8dc;font-size:12px;min-height:18px;margin:8px 0 2px}
+@media(max-width:430px){body{padding:5px}.stage{padding:4px;border-radius:13px}#joystick{width:98px;height:98px;right:14px;bottom:14px}#knob{width:42px;height:42px}.pill{padding:5px 7px;font-size:11px}}
 </style>
 </head>
-<body><div class="app">
-<header><h1>🟢 TERRITORY IO</h1><div class="stats"><div class="pill">Моя зона: <b id="score">0%</b></div><div class="pill">Рекорд: <b id="best">0%</b></div></div></header>
-<div class="panel">
-<canvas id="game" width="880" height="880" aria-label="Круглая игровая арена"></canvas>
-<div class="bottom"><div class="hint">Арена теперь круглая. Выходи из своей зоны, рисуй контур и возвращайся. Боты тоже захватывают территорию. Край круга — безопасная стена.</div><button id="restart">Заново</button></div>
-<div class="pad"><button class="up" data-dir="up">▲</button><button class="left" data-dir="left">◀</button><button class="down" data-dir="down">▼</button><button class="right" data-dir="right">▶</button></div>
-<div class="overlay" id="message">Управление: свайп по полю, кнопки или стрелки клавиатуры.</div>
-</div></div>
+<body><main class="app">
+<header><h1>🟢 TERRITORY IO</h1><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div></div></header>
+<div class="stage">
+<canvas id="game" width="960" height="960" aria-label="Круглая игровая арена"></canvas>
+<div id="joystick"><div id="knob"></div></div>
+</div>
+<div class="bottom"><div class="hint">Удерживай джойстик и веди в нужную сторону. Выйди из своей зоны, нарисуй петлю и вернись. Не дай соперникам пересечь твой след!</div><button id="restart">Заново</button></div>
+<div id="message">Захватывай территорию и остерегайся открытого следа.</div>
+</main>
 <script>
 (()=>{
+'use strict';
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
-const N=44,CELL=20,CX=21.5,CY=21.5,R=21.1,EMPTY=0,ME=1,WALL=-1;
-const COLORS={1:'#27c987',2:'#ff647c',3:'#ffc45c',4:'#a78bfa'},dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-let board,player,trail,bots,best=Number(localStorage.getItem('territoryBest')||0),dir={x:1,y:0},nextDir={x:1,y:0},tick=0;
-document.getElementById('best').textContent=best+'%';
-function inside(x,y){return x>=0&&y>=0&&x<N&&y<N&&Math.hypot(x-CX,y-CY)<=R;}
-function makeBot(id,x,y,dx,dy){
- for(let yy=y-2;yy<=y+2;yy++)for(let xx=x-2;xx<=x+2;xx++)if(inside(xx,yy)&&board[yy][xx]===EMPTY)board[yy][xx]=id;
- return{id,x,y,dx,dy,trail:[]};
+const W=960,C=240,S=W/C,CX=W/2,CY=W/2,R=458,EMPTY=0,OUT=255;
+const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
+const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
+const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
+const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
+let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),joyActive=false,joyPointer=null,joyAngle=0,keys={};
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
+bestEl.textContent=best+'%';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function valid(x,y){return x>=0&&y>=0&&x<C&&y<C&&Math.hypot((x+.5)*S-CX,(y+.5)*S-CY)<=R;}
+function cellAt(x,y){const gx=Math.floor(x/S),gy=Math.floor(y/S);return gx>=0&&gy>=0&&gx<C&&gy<C?gy*C+gx:-1;}
+function ownerAt(x,y){const i=cellAt(x,y);return i<0?OUT:land[i];}
+function setCell(x,y,id){if(x>=0&&y>=0&&x<C&&y<C&&valid(x,y))land[y*C+x]=id;}
+function stamp(id,points,radius=2.8){
+ const rr=Math.ceil(radius);
+ for(const p of points){const gx=Math.floor(p.x/S),gy=Math.floor(p.y/S);
+  for(let oy=-rr;oy<=rr;oy++)for(let ox=-rr;ox<=rr;ox++)if(ox*ox+oy*oy<=radius*radius)setCell(gx+ox,gy+oy,id);
+ }
 }
-function fresh(){
- board=Array.from({length:N},(_,y)=>Array.from({length:N},(_,x)=>inside(x,y)?EMPTY:WALL));
- for(let y=19;y<=24;y++)for(let x=5;x<=10;x++)if(inside(x,y))board[y][x]=ME;
- player={x:10,y:21};trail=[];dir={x:1,y:0};nextDir={x:1,y:0};tick=0;
- bots=[makeBot(2,32,8,-1,0),makeBot(3,34,33,0,-1),makeBot(4,9,34,1,0)];
- updateScore();document.getElementById('message').textContent='Боты строят свои контуры и расширяют цветные зоны.';draw();
+function seedBase(id,x,y,r){
+ const pts=[];for(let a=0;a<Math.PI*2;a+=.055)pts.push({x:x+Math.cos(a)*r,y:y+Math.sin(a)*r});
+ for(let yy=Math.floor((y-r)/S);yy<=Math.ceil((y+r)/S);yy++)for(let xx=Math.floor((x-r)/S);xx<=Math.ceil((x+r)/S);xx++){
+  if(Math.hypot((xx+.5)*S-x,(yy+.5)*S-y)<=r)setCell(xx,yy,id);
+ }
 }
+function countOwned(id){let n=0;for(let i=0;i<land.length;i++)if(land[i]===id)n++;return n;}
 function updateScore(){
- const total=board.flat().filter(v=>v!==WALL).length,owned=board.flat().filter(v=>v===ME).length;
- const score=Math.round(owned/total*100);document.getElementById('score').textContent=score+'%';
- if(score>best){best=score;localStorage.setItem('territoryBest',best);document.getElementById('best').textContent=best+'%';}
+ const validCount=land.reduce((n,v)=>n+(v!==OUT),0),mine=countOwned(1),pct=Math.round(mine/validCount*100);
+ scoreEl.textContent=pct+'%';if(pct>best){best=pct;bestEl.textContent=best+'%';localStorage.setItem('territoryBest',best);}
 }
-function setDirection(d){
- const m={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}},v=m[d];
- if(!v||(v.x===-dir.x&&v.y===-dir.y))return;nextDir=v;
-}
-function captureArea(owner,path){
- for(const p of path)if(inside(p.x,p.y)&&board[p.y][p.x]!==WALL)board[p.y][p.x]=owner;
- const seen=Array.from({length:N},()=>Array(N).fill(false)),q=[];
- for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===WALL){seen[y][x]=true;q.push([x,y]);}
- for(let i=0;i<q.length;i++){
-  const[x,y]=q[i];
-  for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<N&&ny<N&&!seen[ny][nx]&&board[ny][nx]!==owner&&board[ny][nx]!==WALL){seen[ny][nx]=true;q.push([nx,ny]);}}
+function nearestLand(id,x,y){
+ let bestPoint=null,bestD=Infinity;
+ const gx=Math.floor(x/S),gy=Math.floor(y/S),max=70;
+ for(let rad=0;rad<=max;rad+=3){
+  for(let yy=Math.max(0,gy-rad);yy<=Math.min(C-1,gy+rad);yy+=Math.max(1,Math.floor(rad/8))){
+   for(let xx=Math.max(0,gx-rad);xx<=Math.min(C-1,gx+rad);xx+=Math.max(1,Math.floor(rad/8))){
+    if(land[yy*C+xx]===id){const px=(xx+.5)*S,py=(yy+.5)*S,d=(px-x)**2+(py-y)**2;if(d<bestD){bestD=d;bestPoint={x:px,y:py};}}
+   }
+  }
+  if(bestPoint&&bestD<(rad*S+S)**2)break;
  }
- for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]!==WALL&&board[y][x]!==owner&&!seen[y][x])board[y][x]=owner;
+ return bestPoint;
 }
-function losePlayer(){trail=[];player={x:10,y:21};dir={x:1,y:0};nextDir={x:1,y:0};document.getElementById('message').textContent='След оборвался! Попробуй снова.';}
-function movePlayer(){
- dir=nextDir;const nx=player.x+dir.x,ny=player.y+dir.y;
- if(!inside(nx,ny))return;
- if(bots.some(b=>b.x===nx&&b.y===ny)){losePlayer();return;}
- player={x:nx,y:ny};
- if(board[ny][nx]===ME){if(trail.length){captureArea(ME,trail);trail=[];updateScore();document.getElementById('message').textContent='Территория захвачена!';}}
- else{if(trail.some(p=>p.x===nx&&p.y===ny)){losePlayer();return;}trail.push({x:nx,y:ny});if(trail.length>34)losePlayer();}
-}
-function routeHome(b){
- const q=[[b.x,b.y,null]],seen=Array.from({length:N},()=>Array(N).fill(false));seen[b.y][b.x]=true;
- for(let i=0;i<q.length;i++){
-  const[x,y,first]=q[i];if(board[y][x]===b.id&&first)return first;
-  for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(!inside(nx,ny)||seen[ny][nx])continue;
-   const cell=board[ny][nx];if(cell===WALL||cell===b.id)continue;
-   if(b.trail.some(p=>p.x===nx&&p.y===ny))continue;
-   seen[ny][nx]=true;q.push([nx,ny,first||{x:dx,y:dy}]);
+function capture(id,path){
+ stamp(id,path,2.7);
+ // Flood the cells connected to the circular arena's outside through non-owned land.
+ const seen=new Uint8Array(C*C),queue=new Int32Array(C*C);let head=0,tail=0;
+ for(let y=0;y<C;y++)for(let x=0;x<C;x++){
+  const i=y*C+x;if(land[i]===OUT)continue;
+  let edge=false;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])if(!valid(x+dx,y+dy)){edge=true;break;}
+  if(edge&&land[i]!==id&&!seen[i]){seen[i]=1;queue[tail++]=i;}
+ }
+ while(head<tail){
+  const i=queue[head++],x=i%C,y=(i/C)|0;
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=C||ny>=C)continue;
+   const ni=ny*C+nx;if(!seen[ni]&&land[ni]!==OUT&&land[ni]!==id){seen[ni]=1;queue[tail++]=ni;}
   }
  }
- return null;
+ for(let i=0;i<land.length;i++)if(land[i]!==OUT&&land[i]!==id&&!seen[i])land[i]=id;
+ updateScore();
 }
-function resetBot(b){
- b.trail=[];let target=null,distance=1e9;
- for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===b.id){const d=Math.abs(x-b.x)+Math.abs(y-b.y);if(d<distance){distance=d;target={x,y};}}
- if(target){b.x=target.x;b.y=target.y;}
+function makePlayer(id,x,y,angle,isHuman=false){
+ return{id,x,y,angle,speed:isHuman?170:125,trail:[],outside:false,turn:0,think:0,targetAngle:angle,isHuman,alive:true};
 }
-function moveBot(b){
- let step=b.trail.length>=6?routeHome(b):null;
- if(!step){
-  let options=dirs.filter(([dx,dy])=>!(dx===-b.dx&&dy===-b.dy)).sort(()=>Math.random()-.5);
-  const aheadX=b.x+b.dx,aheadY=b.y+b.dy;
-  if(Math.random()<.3||!inside(aheadX,aheadY)||(board[aheadY]&&board[aheadY][aheadX]!==EMPTY)){
-   step=options.map(([x,y])=>({x,y})).find(v=>inside(b.x+v.x,b.y+v.y)&&board[b.y+v.y][b.x+v.x]!==WALL&&board[b.y+v.y][b.x+v.x]!==b.id&&!b.trail.some(p=>p.x===b.x+v.x&&p.y===b.y+v.y));
+function reset(){
+ land=new Uint8Array(C*C);land.fill(OUT);
+ for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
+ seedBase(1,390,480,68);
+ seedBase(2,690,285,57);seedBase(3,690,680,57);seedBase(4,270,700,57);
+ player=makePlayer(1,455,480,0,true);
+ players=[player,makePlayer(2,690,285,2.5),makePlayer(3,690,680,-2),makePlayer(4,270,700,-.2)];
+ frame=0;updateScore();msg.textContent='Боты уже на арене. Захвати как можно больше пространства.';draw();
+}
+function angleDiff(a,b){return Math.atan2(Math.sin(b-a),Math.cos(b-a));}
+function steer(p,dt){
+ if(p.isHuman){
+  if(joyActive)p.targetAngle=joyAngle;
+  else{
+   let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;
+   if(dx||dy)p.targetAngle=Math.atan2(dy,dx);
   }
-  if(!step)step={x:b.dx,y:b.dy};
+ }else{
+  p.think-=dt;
+  if(p.trail.length>22|| (p.outside&&p.trail.length>12&&p.think<=0&&Math.random()<.018)){
+   const home=nearestLand(p.id,p.x,p.y);if(home)p.targetAngle=Math.atan2(home.y-p.y,home.x-p.x);
+  }else if(p.think<=0){
+   p.targetAngle+=((Math.random()-.5)*1.8);p.think=.45+Math.random()*.8;
+  }
  }
- const nx=b.x+step.x,ny=b.y+step.y;
- if(!inside(nx,ny)){b.dx=-b.dx;b.dy=-b.dy;return;}
- if(b.trail.some(p=>p.x===nx&&p.y===ny)){resetBot(b);return;}
- if(board[ny][nx]===b.id){
-  if(b.trail.length){captureArea(b.id,b.trail);b.trail=[];}
-  b.x=nx;b.y=ny;b.dx=step.x;b.dy=step.y;return;
+ const diff=angleDiff(p.angle,p.targetAngle),turnRate=p.isHuman?4.2:1.9;
+ p.angle+=clamp(diff,-turnRate*dt,turnRate*dt);
+}
+function sampleSegment(a,b,spacing=3){
+ const d=dist(a,b),n=Math.max(1,Math.ceil(d/spacing)),out=[];
+ for(let i=1;i<=n;i++){const t=i/n;out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}
+ return out;
+}
+function kill(p,reason){
+ if(!p.alive)return;
+ p.trail=[];p.outside=false;
+ const home=nearestLand(p.id,p.x,p.y);
+ if(home){p.x=home.x;p.y=home.y;}else{const fallback={1:[390,480],2:[690,285],3:[690,680],4:[270,700]}[p.id];p.x=fallback[0];p.y=fallback[1];}
+ p.targetAngle=p.angle;p.think=1;
+ if(p.isHuman)msg.textContent=reason||'Твой след пересекли! Попробуй снова.';
+}
+function checkTrailHit(mover,from,to){
+ for(const other of players){if(other===mover||!other.trail.length)continue;
+  for(let i=0;i<other.trail.length;i+=2)if(dist(to,other.trail[i])<10){kill(other,other.isHuman?'Твой след пересекли!':'');return true;}
  }
- if(board[ny][nx]===WALL||bots.some(other=>other!==b&&other.x===nx&&other.y===ny)){resetBot(b);return;}
- if(trail.some(p=>p.x===nx&&p.y===ny)){losePlayer();resetBot(b);return;}
- b.x=nx;b.y=ny;b.dx=step.x;b.dy=step.y;b.trail.push({x:nx,y:ny});
- if(b.trail.length>16)resetBot(b);
+ return false;
+}
+function moveOne(p,dt){
+ steer(p,dt);
+ const from={x:p.x,y:p.y},to={x:p.x+Math.cos(p.angle)*p.speed*dt,y:p.y+Math.sin(p.angle)*p.speed*dt};
+ if(Math.hypot(to.x-CX,to.y-CY)>R-8){p.targetAngle=Math.atan2(CY-p.y,CX-p.x);p.angle+=angleDiff(p.angle,p.targetAngle)*.8;return;}
+ for(const other of players)if(other!==p&&dist(to,other)<13){if(other.trail.length)kill(other,other.isHuman?'Твой след пересекли!':'');}
+ if(checkTrailHit(p,from,to)){if(p.isHuman)kill(p,'Ты столкнулся со следом соперника!');return;}
+ p.x=to.x;p.y=to.y;
+ const own=ownerAt(p.x,p.y)===p.id;
+ if(!own){
+  p.outside=true;
+  const samples=sampleSegment(from,to,2.4);
+  p.trail.push(...samples);
+  if(p.trail.length>500){kill(p,p.isHuman?'Слишком длинный след — вернись на свою территорию!':'');return;}
+ }else if(p.outside&&p.trail.length){
+  const closing=sampleSegment(from,to,2.4);p.trail.push(...closing);
+  capture(p.id,p.trail);p.trail=[];p.outside=false;
+  if(p.isHuman)msg.textContent='Отлично! Территория захвачена.';
+ }
 }
 function draw(){
- ctx.clearRect(0,0,880,880);ctx.fillStyle='#0b1422';ctx.fillRect(0,0,880,880);
- ctx.save();ctx.beginPath();ctx.arc(440,440,422,0,Math.PI*2);ctx.fillStyle='#101d30';ctx.fill();ctx.clip();
- for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-  const owner=board[y][x];if(owner===WALL||owner===EMPTY)continue;
-  ctx.fillStyle=COLORS[owner];ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);
+ ctx.clearRect(0,0,W,W);ctx.fillStyle='#0b1422';ctx.fillRect(0,0,W,W);
+ ctx.save();ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle='#142238';ctx.fill();ctx.clip();
+ const img=mctx.createImageData(C,C),d=img.data;
+ for(let i=0;i<land.length;i++){const id=land[i],col=id===OUT?[12,20,34]:id===EMPTY?[23,39,60]:hex(COLORS[id]);const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;}
+ mctx.putImageData(img,0,0);ctx.imageSmoothingEnabled=false;ctx.drawImage(mapCanvas,0,0,W,W);ctx.imageSmoothingEnabled=true;
+ // subtle circular arena grid
+ ctx.strokeStyle='#ffffff0b';ctx.lineWidth=1;
+ for(let r=70;r<R;r+=70){ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);ctx.stroke();}
+ for(const p of players){
+  if(p.trail.length>1){ctx.beginPath();ctx.moveTo(p.trail[0].x,p.trail[0].y);for(let i=1;i<p.trail.length;i++)ctx.lineTo(p.trail[i].x,p.trail[i].y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=COLORS[p.id];ctx.lineWidth=12;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
  }
- ctx.strokeStyle='#263750';ctx.lineWidth=1;
- for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,880);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(880,i*CELL);ctx.stroke();}
- trail.forEach(p=>{ctx.fillStyle='#d2ffe9';ctx.fillRect(p.x*CELL+2,p.y*CELL+2,CELL-4,CELL-4);});
- bots.forEach(b=>{
-  b.trail.forEach(p=>{ctx.fillStyle=COLORS[b.id];ctx.globalAlpha=.65;ctx.fillRect(p.x*CELL+2,p.y*CELL+2,CELL-4,CELL-4);});
-  ctx.globalAlpha=1;ctx.fillStyle=COLORS[b.id];ctx.beginPath();ctx.arc(b.x*CELL+10,b.y*CELL+10,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
- });
- ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x*CELL+10,player.y*CELL+10,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#102';ctx.lineWidth=2;ctx.stroke();
- ctx.restore();ctx.beginPath();ctx.arc(440,440,422,0,Math.PI*2);ctx.strokeStyle='#6d829f';ctx.lineWidth=5;ctx.stroke();
+ for(const p of players){
+  ctx.beginPath();ctx.arc(p.x,p.y,p.isHuman?11:10,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#f4f7ff';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+Math.cos(p.angle)*17,p.y+Math.sin(p.angle)*17);ctx.strokeStyle='#102033';ctx.lineWidth=3;ctx.stroke();
+ }
+ ctx.restore();ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.strokeStyle='#8da5c4';ctx.lineWidth=5;ctx.stroke();
 }
-function gameStep(){movePlayer();if(tick%2===0)bots.forEach(moveBot);tick++;draw();}
-document.addEventListener('keydown',e=>{const m={ArrowUp:'up',w:'up',ArrowDown:'down',s:'down',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'};if(m[e.key]){e.preventDefault();setDirection(m[e.key]);}});
-document.querySelectorAll('[data-dir]').forEach(btn=>btn.addEventListener('pointerdown',e=>{e.preventDefault();setDirection(btn.dataset.dir);}));
-let touch=null;canvas.addEventListener('touchstart',e=>{const t=e.changedTouches[0];touch={x:t.clientX,y:t.clientY};},{passive:true});
-canvas.addEventListener('touchend',e=>{if(!touch)return;const t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;if(Math.max(Math.abs(dx),Math.abs(dy))>12)setDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));touch=null;},{passive:true});
-document.getElementById('restart').addEventListener('click',fresh);fresh();setInterval(gameStep,110);
+function hex(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+let last=0;
+function loop(now){const dt=Math.min((now-last)/1000||0,0.035);last=now;
+ for(const p of players)moveOne(p,dt);
+ if(frame++%8===0)draw();requestAnimationFrame(loop);
+}
+const joy=document.getElementById('joystick'),knob=document.getElementById('knob');
+joy.addEventListener('pointerdown',e=>{joyActive=true;joyPointer=e.pointerId;joy.setPointerCapture(e.pointerId);updateJoy(e);});
+joy.addEventListener('pointermove',e=>{if(joyActive&&e.pointerId===joyPointer)updateJoy(e);});
+function updateJoy(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy;joyAngle=Math.atan2(dy,dx);const len=Math.min(Math.hypot(dx,dy),r.width*.34),a=Math.atan2(dy,dx);knob.style.transform='translate('+Math.cos(a)*len+'px,'+Math.sin(a)*len+'px)';}
+function endJoy(e){if(e.pointerId!==joyPointer)return;joyActive=false;joyPointer=null;knob.style.transform='translate(0,0)';}
+joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
+document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){keys[e.key]=true;e.preventDefault();}});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+document.getElementById('restart').addEventListener('click',reset);
+reset();requestAnimationFrame(loop);
 })();
 </script>
-</body>
-</html>
+</body></html>
