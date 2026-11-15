@@ -35,6 +35,8 @@ const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
+const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
+const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
@@ -212,12 +214,34 @@ function draw(){
  if(terrainDirty){
   const img=mctx.createImageData(C,C),d=img.data;
   for(let i=0;i<land.length;i++){const id=land[i],col=id===OUT?[12,20,34]:id===EMPTY?[23,39,60]:hex(COLORS[id]);const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;}
-  mctx.putImageData(img,0,0);terrainDirty=false;
+  mctx.putImageData(img,0,0);
+  // Render territory at world resolution. Boundary cells get rounded corners;
+  // interior cells stay square, so the land remains crisp rather than blurred.
+  tctx.clearRect(0,0,W,W);
+  tctx.fillStyle='#0c1422';tctx.fillRect(0,0,W,W);
+  for(let id=1;id<=4;id++){
+   const color=COLORS[id];tctx.fillStyle=color;
+   for(let y=0;y<C;y++)for(let x=0;x<C;x++){
+    if(land[y*C+x]!==id)continue;
+    const left=x===0||land[y*C+x-1]!==id;
+    const right=x===C-1||land[y*C+x+1]!==id;
+    const up=y===0||land[(y-1)*C+x]!==id;
+    const down=y===C-1||land[(y+1)*C+x]!==id;
+    const boundary=left||right||up||down;
+    const px=x*S,py=y*S;
+    if(boundary){
+     tctx.beginPath();
+     tctx.roundRect(px-0.6,py-0.6,S+1.2,S+1.2,5.2);
+     tctx.fill();
+    }else{
+     tctx.fillRect(px,py,S,S);
+    }
+   }
+  }
+  terrainDirty=false;
  }
- // Smooth interpolation softens the coarse cell edges into clean territory borders.
- ctx.imageSmoothingEnabled=true;
- ctx.imageSmoothingQuality='high';
- ctx.drawImage(mapCanvas,0,0,W,W);
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(terrainCanvas,0,0);
  ctx.strokeStyle='#ffffff0b';ctx.lineWidth=3;
  for(let r=210;r<R;r+=210){ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);ctx.stroke();}
  for(const p of players){
