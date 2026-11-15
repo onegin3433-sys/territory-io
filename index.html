@@ -400,63 +400,97 @@ function draw(){
  for(const p of players){
   if(!p.alive)continue;
   if(p.isHuman){
-   // Player skin: a complete cartoon cat with a swaying tail and tiny running legs.
+   // Explorer kitten: layered, shaded 3D-style character with goggles and backpack.
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
-   const run=Math.sin(frame*.32),bob=Math.sin(frame*.16)*1.7;
-   ctx.translate(0,bob);
-   // soft ground shadow
-   ctx.beginPath();ctx.ellipse(-2,24,33,9,0,0,Math.PI*2);
-   ctx.fillStyle='#07111db0';ctx.fill();
-   // tail, animated with a gentle swish
-   ctx.beginPath();ctx.moveTo(-23,5);
-   ctx.bezierCurveTo(-43,-1-run*3,-43,-28+run*5,-29,-32+run*5);
-   ctx.bezierCurveTo(-19,-39+run*5,-17,-27+run*4,-25,-25+run*4);
-   ctx.strokeStyle='#b9c5d4';ctx.lineWidth=10;ctx.lineCap='round';ctx.stroke();
-   ctx.beginPath();ctx.moveTo(-23,5);
-   ctx.bezierCurveTo(-43,-1-run*3,-43,-28+run*5,-29,-32+run*5);
-   ctx.strokeStyle='#f2a84b';ctx.lineWidth=6;ctx.stroke();
-   // body
-   const fur=ctx.createLinearGradient(-24,-15,23,22);
-   fur.addColorStop(0,'#ffe0a8');fur.addColorStop(.55,'#f3b85f');fur.addColorStop(1,'#c87937');
-   ctx.beginPath();ctx.ellipse(-5,7,27,17,0,0,Math.PI*2);
-   ctx.fillStyle=fur;ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle='#fff0d5';ctx.stroke();
-   // little running legs
-   for(const side of [-1,1]){
-    const swing=run*5*side;
-    ctx.strokeStyle='#c87937';ctx.lineWidth=8;ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(-17,15);ctx.lineTo(-19+swing,24);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(9,15);ctx.lineTo(12-swing,24);ctx.stroke();
-    ctx.beginPath();ctx.ellipse(-19+swing,25,6,3,0,0,Math.PI*2);ctx.fillStyle='#fff0d5';ctx.fill();
-    ctx.beginPath();ctx.ellipse(12-swing,25,6,3,0,0,Math.PI*2);ctx.fill();
+   const run=Math.sin(frame*.34),bounce=Math.sin(frame*.68)*2.2;
+   ctx.translate(0,bounce);
+   // soft cast shadow
+   ctx.save();ctx.scale(1,.38);ctx.beginPath();ctx.ellipse(-1,58,47,18,0,0,Math.PI*2);
+   ctx.fillStyle='#06101c99';ctx.fill();ctx.restore();
+   // fluffy tail behind the body
+   ctx.beginPath();ctx.moveTo(-25,3);
+   ctx.bezierCurveTo(-47,-3-run*3,-53,-31+run*5,-39,-43+run*5);
+   ctx.bezierCurveTo(-28,-54+run*5,-17,-47+run*4,-23,-39+run*4);
+   ctx.strokeStyle='#b8c6d6';ctx.lineWidth=17;ctx.lineCap='round';ctx.stroke();
+   ctx.beginPath();ctx.moveTo(-25,3);
+   ctx.bezierCurveTo(-47,-3-run*3,-53,-31+run*5,-39,-43+run*5);
+   ctx.bezierCurveTo(-28,-54+run*5,-17,-47+run*4,-23,-39+run*4);
+   ctx.strokeStyle='#fff';ctx.lineWidth=12;ctx.stroke();
+   // rear legs, animated in alternating strides
+   const leg=(x,phase,far)=>{
+    const swing=Math.sin(phase)*10,up=Math.max(0,Math.cos(phase))*7;
+    ctx.strokeStyle=far?'#c7d0dc':'#e4e9f0';ctx.lineWidth=12;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x,13);ctx.quadraticCurveTo(x+swing*.45,23,x+swing,34-up);ctx.stroke();
+    const paw=ctx.createRadialGradient(x+swing-2,30-up,1,x+swing,35-up,10);
+    paw.addColorStop(0,'#fff');paw.addColorStop(.7,'#e6eaf0');paw.addColorStop(1,'#aab7c7');
+    ctx.beginPath();ctx.ellipse(x+swing,36-up,10,7,-.12,0,Math.PI*2);ctx.fillStyle=paw;ctx.fill();
+   };
+   leg(-17,frame*.34+Math.PI,true);leg(13,frame*.34,false);
+   // rounded body with belly light and shaded back
+   const body=ctx.createRadialGradient(-13,-12,4,1,5,43);
+   body.addColorStop(0,'#fff');body.addColorStop(.42,'#edf1f7');body.addColorStop(.78,'#c6d0dd');body.addColorStop(1,'#8494a8');
+   ctx.beginPath();ctx.ellipse(-5,5,36,24,-.08,0,Math.PI*2);ctx.fillStyle=body;ctx.fill();
+   ctx.lineWidth=2.5;ctx.strokeStyle='#f8fbff';ctx.stroke();
+   // brown explorer backpack behind shoulder
+   const pack=ctx.createLinearGradient(-33,-18,-8,20);
+   pack.addColorStop(0,'#b87943');pack.addColorStop(.45,'#70452e');pack.addColorStop(1,'#3e2a25');
+   ctx.beginPath();ctx.roundRect(-34,-18,24,35,8);ctx.fillStyle=pack;ctx.fill();
+   ctx.lineWidth=2.2;ctx.strokeStyle='#e0b17b';ctx.stroke();
+   ctx.beginPath();ctx.roundRect(-31,-12,18,17,5);ctx.fillStyle='#92603b';ctx.fill();
+   ctx.beginPath();ctx.arc(-22,-4,5,0,Math.PI*2);ctx.fillStyle='#39d9ff';ctx.shadowColor='#39d9ff';ctx.shadowBlur=9;ctx.fill();ctx.shadowBlur=0;
+   // blue rolled sleeping mat on top of backpack
+   const roll=ctx.createLinearGradient(-32,-29,-12,-20);
+   roll.addColorStop(0,'#8edcff');roll.addColorStop(.45,'#168bd0');roll.addColorStop(1,'#064d89');
+   ctx.beginPath();ctx.roundRect(-32,-29,22,9,5);ctx.fillStyle=roll;ctx.fill();ctx.strokeStyle='#c3edff';ctx.lineWidth=1.4;ctx.stroke();
+   ctx.beginPath();ctx.arc(-12,-24.5,4,0,Math.PI*2);ctx.fillStyle='#0c5d9b';ctx.fill();
+   // blue neck scarf and gold bell
+   ctx.beginPath();ctx.moveTo(-12,-7);ctx.quadraticCurveTo(4,-1,20,-9);ctx.lineTo(14,12);ctx.lineTo(4,7);ctx.lineTo(-1,15);ctx.closePath();
+   const scarf=ctx.createLinearGradient(0,-8,13,14);
+   scarf.addColorStop(0,'#43baff');scarf.addColorStop(.6,'#0877c8');scarf.addColorStop(1,'#064b91');
+   ctx.fillStyle=scarf;ctx.fill();ctx.strokeStyle='#b6e9ff';ctx.lineWidth=1.4;ctx.stroke();
+   ctx.beginPath();ctx.arc(14,5,4.5,0,Math.PI*2);ctx.fillStyle='#f4c34e';ctx.fill();ctx.strokeStyle='#fff0a8';ctx.stroke();
+   // large rounded head
+   const head=ctx.createRadialGradient(-11,-31,3,2,-15,43);
+   head.addColorStop(0,'#fff');head.addColorStop(.48,'#f7f9fc');head.addColorStop(.82,'#d6deea');head.addColorStop(1,'#91a1b5');
+   ctx.beginPath();ctx.moveTo(-25,-16);ctx.lineTo(-27,-42);ctx.quadraticCurveTo(-26,-49,-19,-44);ctx.lineTo(-7,-32);
+   ctx.quadraticCurveTo(3,-37,13,-31);ctx.lineTo(25,-45);ctx.quadraticCurveTo(32,-49,32,-40);ctx.lineTo(29,-14);
+   ctx.quadraticCurveTo(27,12,3,15);ctx.quadraticCurveTo(-23,12,-25,-16);ctx.closePath();
+   ctx.fillStyle=head;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();
+   // pink ear interiors
+   ctx.beginPath();ctx.moveTo(-23,-41);ctx.lineTo(-21,-27);ctx.lineTo(-11,-32);ctx.closePath();
+   ctx.moveTo(25,-41);ctx.lineTo(22,-27);ctx.lineTo(12,-32);ctx.closePath();ctx.fillStyle='#f2a9b8';ctx.fill();
+   // goggles strap
+   ctx.beginPath();ctx.moveTo(-24,-35);ctx.quadraticCurveTo(0,-44,28,-34);ctx.strokeStyle='#65432e';ctx.lineWidth=5;ctx.stroke();
+   // two blue glass lenses on forehead
+   for(const gx of [-11,13]){
+    const lens=ctx.createRadialGradient(gx-3,-39,1,gx,-34,12);
+    lens.addColorStop(0,'#a9f4ff');lens.addColorStop(.35,'#26c9ff');lens.addColorStop(1,'#07518d');
+    ctx.beginPath();ctx.ellipse(gx,-35,10,7,0,0,Math.PI*2);ctx.fillStyle=lens;ctx.fill();
+    ctx.lineWidth=3;ctx.strokeStyle='#b7834f';ctx.stroke();
+    ctx.beginPath();ctx.ellipse(gx-2,-38,3,1.5,-.3,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
    }
-   // head and ears
-   ctx.beginPath();ctx.moveTo(-19,-17);ctx.lineTo(-22,-39);ctx.quadraticCurveTo(-20,-44,-14,-38);ctx.lineTo(-5,-29);
-   ctx.quadraticCurveTo(5,-34,14,-29);ctx.lineTo(23,-40);ctx.quadraticCurveTo(29,-44,29,-36);ctx.lineTo(25,-15);
-   ctx.quadraticCurveTo(24,7,3,10);ctx.quadraticCurveTo(-19,8,-19,-17);ctx.closePath();
-   const head=ctx.createRadialGradient(-7,-28,2,2,-15,38);
-   head.addColorStop(0,'#fff0d0');head.addColorStop(.55,'#f7c777');head.addColorStop(1,'#d58b43');
-   ctx.fillStyle=head;ctx.fill();ctx.lineWidth=2.8;ctx.strokeStyle='#fff0d5';ctx.stroke();
-   // pink inner ears
-   ctx.beginPath();ctx.moveTo(-19,-35);ctx.lineTo(-18,-24);ctx.lineTo(-10,-29);ctx.closePath();
-   ctx.moveTo(18,-35);ctx.lineTo(17,-24);ctx.lineTo(10,-29);ctx.closePath();
-   ctx.fillStyle='#e98d91';ctx.fill();
-   // eyes, nose and muzzle
-   for(const ex of [-9,10]){
-    ctx.beginPath();ctx.ellipse(ex,-14,3.2,5,0,0,Math.PI*2);ctx.fillStyle='#243348';ctx.fill();
-    ctx.beginPath();ctx.arc(ex-1,-16,1.1,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+   // expressive bright blue eyes
+   for(const ex of [-10,11]){
+    ctx.beginPath();ctx.ellipse(ex,-13,6,8,0,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+    const iris=ctx.createRadialGradient(ex-1,-15,1,ex,-12,6);
+    iris.addColorStop(0,'#70eaff');iris.addColorStop(.55,'#168ee9');iris.addColorStop(1,'#063b82');
+    ctx.beginPath();ctx.ellipse(ex,-12,4.1,6.2,0,0,Math.PI*2);ctx.fillStyle=iris;ctx.fill();
+    ctx.beginPath();ctx.arc(ex-1.3,-15,1.6,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
    }
-   ctx.beginPath();ctx.ellipse(2,-3,8,6,0,0,Math.PI*2);ctx.fillStyle='#fff3df';ctx.fill();
-   ctx.beginPath();ctx.moveTo(-1,-5);ctx.lineTo(4,-5);ctx.lineTo(1,-1);ctx.closePath();ctx.fillStyle='#d86f78';ctx.fill();
-   ctx.strokeStyle='#704a3b';ctx.lineWidth=1.5;ctx.lineCap='round';
-   ctx.beginPath();ctx.moveTo(1,-1);ctx.lineTo(1,3);ctx.lineTo(-3,5);ctx.moveTo(1,3);ctx.lineTo(5,5);ctx.stroke();
-   // whiskers
-   ctx.strokeStyle='#fff5e7';ctx.lineWidth=1.4;
-   ctx.beginPath();ctx.moveTo(-5,-3);ctx.lineTo(-20,-7);ctx.moveTo(-5,1);ctx.lineTo(-21,2);
-   ctx.moveTo(8,-3);ctx.lineTo(22,-7);ctx.moveTo(8,1);ctx.lineTo(23,2);ctx.stroke();
-   // tiny forehead stripes
-   ctx.strokeStyle='#bd783e';ctx.lineWidth=2;ctx.lineCap='round';
-   ctx.beginPath();ctx.moveTo(-3,-29);ctx.lineTo(-1,-25);ctx.moveTo(4,-29);ctx.lineTo(5,-25);ctx.stroke();
+   // cheeks, muzzle, nose and cheerful mouth
+   ctx.beginPath();ctx.ellipse(-2,-1,13,9,0,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+   ctx.beginPath();ctx.moveTo(-4,-4);ctx.lineTo(2,-4);ctx.lineTo(-1,0);ctx.closePath();ctx.fillStyle='#f18b9e';ctx.fill();
+   ctx.beginPath();ctx.moveTo(-1,0);ctx.quadraticCurveTo(-1,9,7,6);ctx.quadraticCurveTo(12,2,9,0);
+   ctx.fillStyle='#713b49';ctx.fill();
+   ctx.beginPath();ctx.moveTo(4,1);ctx.lineTo(7,1);ctx.lineTo(6,5);ctx.closePath();ctx.fillStyle='#fff';ctx.fill();
+   // whiskers and tiny fur tufts
+   ctx.strokeStyle='#fff';ctx.lineWidth=1.4;ctx.beginPath();
+   ctx.moveTo(-8,-1);ctx.lineTo(-25,-5);ctx.moveTo(-8,3);ctx.lineTo(-25,5);
+   ctx.moveTo(8,-1);ctx.lineTo(25,-5);ctx.moveTo(8,3);ctx.lineTo(25,5);ctx.stroke();
+   ctx.strokeStyle='#aebdce';ctx.lineWidth=1.6;ctx.beginPath();
+   ctx.moveTo(-5,-28);ctx.lineTo(-3,-25);ctx.moveTo(2,-29);ctx.lineTo(3,-26);ctx.stroke();
    ctx.restore();
+  }
   }else{
    ctx.beginPath();ctx.arc(p.x,p.y,30,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();ctx.lineWidth=9;ctx.strokeStyle='#f4f7ff';ctx.stroke();
    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+Math.cos(p.angle)*51,p.y+Math.sin(p.angle)*51);ctx.strokeStyle='#102033';ctx.lineWidth=9;ctx.stroke();
