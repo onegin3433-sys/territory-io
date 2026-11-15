@@ -94,7 +94,7 @@ function capture(id,path){
  updateScore();terrainDirty=true;
 }
 function makePlayer(id,x,y,angle,isHuman=false){
- return{id,x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:0,targetAngle:angle,isHuman,alive:true};
+ return{id,x,y,angle,speed:(isHuman?130:112)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function reset(){
  land=new Uint8Array(C*C);land.fill(OUT);
@@ -113,11 +113,20 @@ function steer(p,dt){
    if(dx||dy)p.targetAngle=Math.atan2(dy,dx);
   }
  }else{
+  // Think in short intervals instead of searching the whole nearby map every frame.
   p.think-=dt;
-  if(p.trail.length>22|| (p.outside&&p.trail.length>12&&p.think<=0&&Math.random()<.018)){
-   const home=nearestLand(p.id,p.x,p.y);if(home)p.targetAngle=Math.atan2(home.y-p.y,home.x-p.x);
-  }else if(p.think<=0){
-   p.targetAngle+=((Math.random()-.5)*1.8);p.think=.45+Math.random()*.8;
+  if(p.think<=0){
+   if(p.outside||p.trail.length>18){
+    p.homeTarget=nearestLand(p.id,p.x,p.y);
+    if(p.homeTarget)p.targetAngle=Math.atan2(p.homeTarget.y-p.y,p.homeTarget.x-p.x);
+    p.think=.28;
+   }else{
+    p.targetAngle+=((Math.random()-.5)*1.25);
+    p.think=.65+Math.random()*.55;
+   }
+  }else if(p.outside&&p.homeTarget&&p.trail.length>18){
+   const d=Math.atan2(p.homeTarget.y-p.y,p.homeTarget.x-p.x);
+   p.targetAngle+=clamp(angleDiff(p.targetAngle,d),-dt*1.2,dt*1.2);
   }
  }
  const diff=angleDiff(p.angle,p.targetAngle),turnRate=p.isHuman?4.2:1.9;
@@ -130,11 +139,15 @@ function sampleSegment(a,b,spacing=3){
 }
 function kill(p,reason){
  if(!p.alive)return;
- p.trail=[];p.outside=false;
- const home=nearestLand(p.id,p.x,p.y);
- if(home){p.x=home.x;p.y=home.y;}else{const fallback={1:[390,480],2:[690,285],3:[690,680],4:[270,700]}[p.id];p.x=fallback[0]*SCALE;p.y=fallback[1]*SCALE;}
- p.targetAngle=p.angle;p.think=1;
- if(p.isHuman)msg.textContent=reason||'Твой след пересекли! Попробуй снова.';
+ p.alive=false;
+ p.trail=[];p.outside=false;p.homeTarget=null;
+ terrainDirty=true;
+ if(p.isHuman){
+  touchActive=false;touchPointer=null;touchLast=null;
+  msg.textContent=reason||'Ты выбыл из игры! Нажми «Заново», чтобы сыграть ещё раз.';
+ }else{
+  msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры!';
+ }
 }
 function checkTrailHit(mover,from,to){
  // A head touching another player's exposed trail eliminates its owner.
@@ -147,20 +160,11 @@ function checkTrailHit(mover,from,to){
    }
   }
  }
- // Your own exposed trail is dangerous too. Ignore the newest points near
- // the player's tail so ordinary forward movement does not count as a hit.
- if(mover.outside&&mover.trail.length>12){
-  const limit=Math.max(0,mover.trail.length-9);
-  for(let i=0;i<limit;i+=2){
-   if(dist(to,mover.trail[i])<24){
-    kill(mover,mover.isHuman?'Ты пересёк собственный след!':'');
-    return true;
-   }
-  }
- }
+ // Crossing your own exposed trail is allowed in this version.
  return false;
 }
 function moveOne(p,dt){
+ if(!p.alive)return;
  steer(p,dt);
  const from={x:p.x,y:p.y};let to={x:p.x+Math.cos(p.angle)*p.speed*dt,y:p.y+Math.sin(p.angle)*p.speed*dt};
  const radial=Math.hypot(to.x-CX,to.y-CY);
@@ -209,9 +213,10 @@ function draw(){
  ctx.strokeStyle='#ffffff0b';ctx.lineWidth=3;
  for(let r=210;r<R;r+=210){ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);ctx.stroke();}
  for(const p of players){
-  if(p.trail.length>1){ctx.beginPath();ctx.moveTo(p.trail[0].x,p.trail[0].y);for(let i=1;i<p.trail.length;i++)ctx.lineTo(p.trail[i].x,p.trail[i].y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=COLORS[p.id];ctx.lineWidth=36;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
+  if(p.alive&&p.trail.length>1){ctx.beginPath();ctx.moveTo(p.trail[0].x,p.trail[0].y);for(let i=1;i<p.trail.length;i++)ctx.lineTo(p.trail[i].x,p.trail[i].y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=COLORS[p.id];ctx.lineWidth=36;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
  }
  for(const p of players){
+  if(!p.alive)continue;
   ctx.beginPath();ctx.arc(p.x,p.y,p.isHuman?33:30,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();ctx.lineWidth=9;ctx.strokeStyle='#f4f7ff';ctx.stroke();
   ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+Math.cos(p.angle)*51,p.y+Math.sin(p.angle)*51);ctx.strokeStyle='#102033';ctx.lineWidth=9;ctx.stroke();
  }
@@ -219,7 +224,7 @@ function draw(){
  miniCtx.clearRect(0,0,240,240);miniCtx.fillStyle='#0b1422';miniCtx.fillRect(0,0,240,240);
  miniCtx.imageSmoothingEnabled=false;miniCtx.drawImage(mapCanvas,0,0,240,240);
  miniCtx.beginPath();miniCtx.arc(120,120,R/W*240,0,Math.PI*2);miniCtx.strokeStyle='#d8e5f5';miniCtx.lineWidth=2;miniCtx.stroke();
- for(const p of players){miniCtx.beginPath();miniCtx.arc(p.x/W*240,p.y/W*240,p.isHuman?4:3,0,Math.PI*2);miniCtx.fillStyle=COLORS[p.id];miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
+ for(const p of players){if(!p.alive)continue;miniCtx.beginPath();miniCtx.arc(p.x/W*240,p.y/W*240,p.isHuman?4:3,0,Math.PI*2);miniCtx.fillStyle=COLORS[p.id];miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
  const rx=cameraX/W*240,ry=cameraY/W*240,rw=VIEW_W/W*240,rh=VIEW_H/W*240;
  miniCtx.strokeStyle='#ffffff';miniCtx.lineWidth=1.5;miniCtx.strokeRect(rx,ry,rw,rh);
 }
