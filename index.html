@@ -94,7 +94,7 @@ function capture(id,path){
  updateScore();terrainDirty=true;
 }
 function makePlayer(id,x,y,angle,isHuman=false){
- return{id,x,y,angle,speed:(isHuman?130:112)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
+ return{id,x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function reset(){
  land=new Uint8Array(C*C);land.fill(OUT);
