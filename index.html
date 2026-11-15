@@ -171,7 +171,7 @@ function checkTrailHit(mover,from,to){
   if(other===mover||!other.trail.length)continue;
   for(let i=0;i<other.trail.length;i+=2){
    if(dist(to,other.trail[i])<27){
-    kill(other,other.isHuman?'Твой след пересекли!':'',p);
+    kill(other,other.isHuman?'Твой след пересекли!':'',mover);
     return true;
    }
   }
