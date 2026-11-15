@@ -137,8 +137,26 @@ function kill(p,reason){
  if(p.isHuman)msg.textContent=reason||'Твой след пересекли! Попробуй снова.';
 }
 function checkTrailHit(mover,from,to){
- for(const other of players){if(other===mover||!other.trail.length)continue;
-  for(let i=0;i<other.trail.length;i+=2)if(dist(to,other.trail[i])<30){kill(other,other.isHuman?'Твой след пересекли!':'');return true;}
+ // A head touching another player's exposed trail eliminates its owner.
+ for(const other of players){
+  if(other===mover||!other.trail.length)continue;
+  for(let i=0;i<other.trail.length;i+=2){
+   if(dist(to,other.trail[i])<27){
+    kill(other,other.isHuman?'Твой след пересекли!':'');
+    return true;
+   }
+  }
+ }
+ // Your own exposed trail is dangerous too. Ignore the newest points near
+ // the player's tail so ordinary forward movement does not count as a hit.
+ if(mover.outside&&mover.trail.length>12){
+  const limit=Math.max(0,mover.trail.length-9);
+  for(let i=0;i<limit;i+=2){
+   if(dist(to,mover.trail[i])<24){
+    kill(mover,mover.isHuman?'Ты пересёк собственный след!':'');
+    return true;
+   }
+  }
  }
  return false;
 }
