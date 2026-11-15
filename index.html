@@ -146,7 +146,16 @@ function checkTrailHit(mover,from,to){
 function moveOne(p,dt){
  steer(p,dt);
  const from={x:p.x,y:p.y},to={x:p.x+Math.cos(p.angle)*p.speed*dt,y:p.y+Math.sin(p.angle)*p.speed*dt};
- if(Math.hypot(to.x-CX,to.y-CY)>R-8){p.targetAngle=Math.atan2(CY-p.y,CX-p.x);p.angle+=angleDiff(p.angle,p.targetAngle)*.8;return;}
+ const radial=Math.hypot(to.x-CX,to.y-CY);
+ if(radial>R-9){
+  // Reflect the movement vector off the circular arena wall.
+  const nx=(to.x-CX)/radial,ny=(to.y-CY)/radial;
+  const vx=Math.cos(p.angle),vy=Math.sin(p.angle),dot=vx*nx+vy*ny;
+  p.x=CX+nx*(R-9);p.y=CY+ny*(R-9);
+  p.angle=Math.atan2(vy-2*dot*ny,vx-2*dot*nx);
+  p.targetAngle=p.angle;
+  return;
+ }
  for(const other of players)if(other!==p&&dist(to,other)<13){if(other.trail.length)kill(other,other.isHuman?'Твой след пересекли!':'');}
  if(checkTrailHit(p,from,to))return;
  p.x=to.x;p.y=to.y;
