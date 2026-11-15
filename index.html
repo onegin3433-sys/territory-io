@@ -6,31 +6,30 @@
 <meta name="theme-color" content="#101827">
 <title>Territory IO — Arena</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#0d1523;color:#eef4ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
-body{display:flex;justify-content:center;padding:8px}.app{width:min(100%,760px)}
-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 2px 9px}h1{font-size:clamp(17px,4vw,23px);margin:0}
-.stats{display:flex;gap:5px}.pill{background:#1b2a40;border:1px solid #344761;border-radius:10px;padding:6px 9px;font-size:12px;white-space:nowrap}
-.stage{position:relative;background:#111d30;border:1px solid #344761;border-radius:16px;padding:6px;box-shadow:0 12px 36px #0007}
-canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;touch-action:none}
-.bottom{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:10px 2px 0;flex-wrap:wrap}.hint{font-size:12px;color:#aebed2;line-height:1.35;flex:1;min-width:190px}
-button{border:0;border-radius:11px;padding:10px 14px;background:#32cf8b;color:#062116;font-weight:800;font-size:14px}
-#message{text-align:center;color:#b7c8dc;font-size:12px;min-height:18px;margin:8px 0 2px}
-@media(max-width:430px){body{padding:5px}.stage{padding:4px;border-radius:13px}.pill{padding:5px 7px;font-size:11px}}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1422;color:#eef4ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+.app{position:fixed;inset:0;width:100%;height:100dvh}
+#game{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;z-index:2;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;align-items:flex-start;justify-content:space-between;pointer-events:none}
+.stats{display:flex;gap:5px}.pill{background:#142238dd;border:1px solid #536985;border-radius:10px;padding:7px 10px;font-size:12px;white-space:nowrap;backdrop-filter:blur(5px)}
+button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8px 11px;background:#142238dd;color:#eef4ff;font-weight:700;font-size:12px}
+#message{position:absolute;z-index:2;bottom:max(8px,env(safe-area-inset-bottom));left:8px;right:8px;text-align:center;color:#d3dfed;font-size:12px;text-shadow:0 1px 4px #000;background:#142238aa;border-radius:9px;padding:6px;pointer-events:none}
+#minimap{position:absolute;z-index:3;right:10px;top:58px;width:clamp(104px,27vw,150px);height:auto;aspect-ratio:1;border:2px solid #c5d5e9;border-radius:12px;background:#0b1422dd;box-shadow:0 3px 14px #0009;pointer-events:none}
 </style>
 </head>
 <body><main class="app">
-<header><h1>🟢 TERRITORY IO</h1><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div></div></header>
-<div class="stage">
-<canvas id="game" width="960" height="960" aria-label="Круглая игровая арена"></canvas>
-
-</div>
-<div class="bottom"><div class="hint">Проводи пальцем в нужную сторону в любой части арены — персонаж повернёт туда. Выйди из своей зоны, нарисуй петлю и вернись.</div><button id="restart">Заново</button></div>
-<div id="message">Захватывай территорию и остерегайся открытого следа.</div>
+<div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div></div><button id="restart">Заново</button></div>
+<canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
+<canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
+<div id="message">Проводи пальцем в сторону движения. Полная карта — в углу.</div>
 </main>
 <script>
 (()=>{
 'use strict';
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const mini=document.getElementById('minimap'),miniCtx=mini.getContext('2d');
+let VIEW_W=960,VIEW_H=960,cameraX=0,cameraY=0;
+function resizeView(){const h=window.innerHeight;VIEW_H=960;VIEW_W=Math.max(320,Math.round(window.innerWidth/h*VIEW_H));canvas.width=VIEW_W;canvas.height=VIEW_H;}
+window.addEventListener('resize',resizeView);resizeView();
 const W=960,C=240,S=W/C,CX=W/2,CY=W/2,R=458,EMPTY=0,OUT=255;
 const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
@@ -175,12 +174,13 @@ function moveOne(p,dt){
  }
 }
 function draw(){
- ctx.clearRect(0,0,W,W);ctx.fillStyle='#0b1422';ctx.fillRect(0,0,W,W);
- ctx.save();ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle='#142238';ctx.fill();ctx.clip();
+ cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;
+ ctx.clearRect(0,0,VIEW_W,VIEW_H);ctx.fillStyle='#0b1422';ctx.fillRect(0,0,VIEW_W,VIEW_H);
+ ctx.save();ctx.translate(-cameraX,-cameraY);
+ ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.fillStyle='#142238';ctx.fill();ctx.clip();
  const img=mctx.createImageData(C,C),d=img.data;
  for(let i=0;i<land.length;i++){const id=land[i],col=id===OUT?[12,20,34]:id===EMPTY?[23,39,60]:hex(COLORS[id]);const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;}
  mctx.putImageData(img,0,0);ctx.imageSmoothingEnabled=false;ctx.drawImage(mapCanvas,0,0,W,W);ctx.imageSmoothingEnabled=true;
- // subtle circular arena grid
  ctx.strokeStyle='#ffffff0b';ctx.lineWidth=1;
  for(let r=70;r<R;r+=70){ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);ctx.stroke();}
  for(const p of players){
@@ -190,7 +190,15 @@ function draw(){
   ctx.beginPath();ctx.arc(p.x,p.y,p.isHuman?11:10,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#f4f7ff';ctx.stroke();
   ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+Math.cos(p.angle)*17,p.y+Math.sin(p.angle)*17);ctx.strokeStyle='#102033';ctx.lineWidth=3;ctx.stroke();
  }
- ctx.restore();ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.strokeStyle='#8da5c4';ctx.lineWidth=5;ctx.stroke();
+ ctx.restore();
+ // Full-arena minimap, fixed in the screen corner.
+ miniCtx.clearRect(0,0,240,240);miniCtx.fillStyle='#0b1422';miniCtx.fillRect(0,0,240,240);
+ miniCtx.imageSmoothingEnabled=false;miniCtx.drawImage(mapCanvas,0,0,240,240);
+ miniCtx.beginPath();miniCtx.arc(120,120,R/W*240,0,Math.PI*2);miniCtx.strokeStyle='#d8e5f5';miniCtx.lineWidth=2;miniCtx.stroke();
+ for(const p of players){miniCtx.beginPath();miniCtx.arc(p.x/W*240,p.y/W*240,p.isHuman?4:3,0,Math.PI*2);miniCtx.fillStyle=COLORS[p.id];miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
+ // Camera rectangle on the minimap.
+ const rx=cameraX/W*240,ry=cameraY/W*240,rw=VIEW_W/W*240,rh=VIEW_H/W*240;
+ miniCtx.strokeStyle='#ffffff';miniCtx.lineWidth=1.5;miniCtx.strokeRect(rx,ry,rw,rh);
 }
 function hex(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
 let last=0;
