@@ -6,93 +6,135 @@
 <meta name="theme-color" content="#101827">
 <title>Territory IO</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101827;color:#eef4ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;min-height:100vh;justify-content:center;align-items:center;padding:14px}
-.app{width:min(100%,620px)}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}h1{font-size:22px;margin:0;letter-spacing:.5px}.stats{display:flex;gap:8px}.pill{background:#202d40;border:1px solid #34445d;border-radius:12px;padding:7px 10px;font-size:13px}
-.panel{background:#182438;border:1px solid #2c3d57;border-radius:18px;padding:10px;box-shadow:0 14px 40px #0005}
-canvas{display:block;width:100%;aspect-ratio:1/1;background:#0d1726;border-radius:12px;touch-action:none}
-.bottom{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}.hint{font-size:12px;color:#a9bad2;line-height:1.4;flex:1;min-width:160px}
-button{border:0;border-radius:12px;padding:11px 15px;background:#36c98b;color:#082016;font-weight:800;font-size:14px}
-.pad{display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,38px);gap:4px;margin:12px auto 0;width:max-content}.pad button{padding:0;background:#293a53;color:#fff;font-size:18px;touch-action: manipulation}.pad .up{grid-column:2}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
-.overlay{font-size:13px;color:#b8c8dc;text-align:center;margin-top:8px}
+*{box-sizing:border-box}body{margin:0;background:#101827;color:#eef4ff;font-family:system-ui,sans-serif;min-height:100vh;padding:6px;display:flex;justify-content:center}
+.app{width:min(100%,760px);margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:3px 2px 8px}
+h1{font-size:clamp(17px,4.5vw,23px);margin:0}.stats{display:flex;gap:5px}.pill{background:#202d40;border:1px solid #34445d;border-radius:10px;padding:6px 8px;font-size:clamp(11px,3vw,13px);white-space:nowrap}
+.panel{background:#182438;border:1px solid #2c3d57;border-radius:15px;padding:6px;box-shadow:0 12px 34px #0005}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;background:#0d1726;border-radius:10px;touch-action:none}
+.bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}.hint{font-size:12px;color:#a9bad2;line-height:1.35;flex:1;min-width:175px}
+button{border:0;border-radius:11px;padding:10px 14px;background:#36c98b;color:#082016;font-weight:800;font-size:14px}
+.pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,38px);gap:4px;margin:9px auto 0;width:max-content}.pad button{padding:0;background:#293a53;color:#fff;font-size:18px;touch-action:manipulation}
+.pad .up{grid-column:2}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
+.overlay{font-size:12px;color:#b8c8dc;text-align:center;margin:7px 0 2px}
 </style>
 </head>
-<body>
-<div class="app">
-<header><h1>🟩 TERRITORY IO</h1><div class="stats"><div class="pill">Захват: <b id="score">0%</b></div><div class="pill">Рекорд: <b id="best">0%</b></div></div></header>
+<body><div class="app">
+<header><h1>🟢 TERRITORY IO</h1><div class="stats"><div class="pill">Моя зона: <b id="score">0%</b></div><div class="pill">Рекорд: <b id="best">0%</b></div></div></header>
 <div class="panel">
-<canvas id="game" width="600" height="600" aria-label="Игровое поле"></canvas>
-<div class="bottom"><div class="hint">Веди игрока за пределы своей территории, замыкай контур и расширяй владения. Край поля — безопасная стена, касание границы не убивает.</div><button id="restart">Заново</button></div>
+<canvas id="game" width="880" height="880" aria-label="Круглая игровая арена"></canvas>
+<div class="bottom"><div class="hint">Арена теперь круглая. Выходи из своей зоны, рисуй контур и возвращайся. Боты тоже захватывают территорию. Край круга — безопасная стена.</div><button id="restart">Заново</button></div>
 <div class="pad"><button class="up" data-dir="up">▲</button><button class="left" data-dir="left">◀</button><button class="down" data-dir="down">▼</button><button class="right" data-dir="right">▶</button></div>
-<div class="overlay" id="message">Управление: стрелки, WASD, свайп или кнопки.</div>
+<div class="overlay" id="message">Управление: свайп по полю, кнопки или стрелки клавиатуры.</div>
 </div></div>
 <script>
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
-const N=30,CELL=20,EMPTY=0,ME=1,ENEMY=2;
-let board,player,trail,bots,tickTimer,score=0,best=Number(localStorage.getItem('territoryBest')||0),running=true,dir={x:1,y:0},nextDir={x:1,y:0},step=0;
+const N=44,CELL=20,CX=21.5,CY=21.5,R=21.1,EMPTY=0,ME=1,WALL=-1;
+const COLORS={1:'#27c987',2:'#ff647c',3:'#ffc45c',4:'#a78bfa'},dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+let board,player,trail,bots,best=Number(localStorage.getItem('territoryBest')||0),dir={x:1,y:0},nextDir={x:1,y:0},tick=0;
 document.getElementById('best').textContent=best+'%';
+function inside(x,y){return x>=0&&y>=0&&x<N&&y<N&&Math.hypot(x-CX,y-CY)<=R;}
+function makeBot(id,x,y,dx,dy){
+ for(let yy=y-2;yy<=y+2;yy++)for(let xx=x-2;xx<=x+2;xx++)if(inside(xx,yy)&&board[yy][xx]===EMPTY)board[yy][xx]=id;
+ return{id,x,y,dx,dy,trail:[]};
+}
 function fresh(){
- board=Array.from({length:N},()=>Array(N).fill(EMPTY));
- for(let y=12;y<18;y++)for(let x=3;x<9;x++)board[y][x]=ME;
- player={x:8,y:14};trail=[];dir={x:1,y:0};nextDir={x:1,y:0};running=true;
- bots=[{x:22,y:7,dx:-1,dy:0,color:'#ff647c'},{x:22,y:23,dx:0,dy:-1,color:'#ffc45c'},{x:7,y:24,dx:1,dy:0,color:'#a78bfa'}];
- score=0;updateScore();document.getElementById('message').textContent='Захватывай территорию и избегай следов соперников.';
- draw();
+ board=Array.from({length:N},(_,y)=>Array.from({length:N},(_,x)=>inside(x,y)?EMPTY:WALL));
+ for(let y=19;y<=24;y++)for(let x=5;x<=10;x++)if(inside(x,y))board[y][x]=ME;
+ player={x:10,y:21};trail=[];dir={x:1,y:0};nextDir={x:1,y:0};tick=0;
+ bots=[makeBot(2,32,8,-1,0),makeBot(3,34,33,0,-1),makeBot(4,9,34,1,0)];
+ updateScore();document.getElementById('message').textContent='Боты строят свои контуры и расширяют цветные зоны.';draw();
 }
-function updateScore(){let owned=board.flat().filter(v=>v===ME).length;score=Math.round(owned/(N*N)*100);document.getElementById('score').textContent=score+'%';if(score>best){best=score;localStorage.setItem('territoryBest',best);document.getElementById('best').textContent=best+'%';}}
-function setDirection(d){const dirs={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};let v=dirs[d];if(!v)return;if(v.x===-dir.x&&v.y===-dir.y)return;nextDir=v;}
-function capture(){
- // Claim the trail, then fill empty regions that cannot reach the board edge.
- for(const p of trail)board[p.y][p.x]=ME;
+function updateScore(){
+ const total=board.flat().filter(v=>v!==WALL).length,owned=board.flat().filter(v=>v===ME).length;
+ const score=Math.round(owned/total*100);document.getElementById('score').textContent=score+'%';
+ if(score>best){best=score;localStorage.setItem('territoryBest',best);document.getElementById('best').textContent=best+'%';}
+}
+function setDirection(d){
+ const m={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}},v=m[d];
+ if(!v||(v.x===-dir.x&&v.y===-dir.y))return;nextDir=v;
+}
+function captureArea(owner,path){
+ for(const p of path)if(inside(p.x,p.y)&&board[p.y][p.x]===EMPTY)board[p.y][p.x]=owner;
  const seen=Array.from({length:N},()=>Array(N).fill(false)),q=[];
- for(let x=0;x<N;x++){if(board[0][x]===EMPTY){seen[0][x]=true;q.push([x,0]);}if(board[N-1][x]===EMPTY){seen[N-1][x]=true;q.push([x,N-1]);}}
- for(let y=0;y<N;y++){if(board[y][0]===EMPTY&&!seen[y][0]){seen[y][0]=true;q.push([0,y]);}if(board[y][N-1]===EMPTY&&!seen[y][N-1]){seen[y][N-1]=true;q.push([N-1,y]);}}
- for(let i=0;i<q.length;i++){let [x,y]=q[i];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){let nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<N&&ny<N&&!seen[ny][nx]&&board[ny][nx]===EMPTY){seen[ny][nx]=true;q.push([nx,ny]);}}}
- for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===EMPTY&&!seen[y][x])board[y][x]=ME;
- trail=[];updateScore();
-}
-function lose(){trail=[];player={x:7,y:14};dir={x:1,y:0};nextDir=dir;document.getElementById('message').textContent='След оборвался! Попробуй ещё раз.';draw();}
-function movePlayer(){
- dir=nextDir;
- let nx=player.x+dir.x,ny=player.y+dir.y;
- // The border is a wall: stop at it, never die from touching it.
- if(nx<0||ny<0||nx>=N||ny>=N){return;}
- if(bots.some(b=>b.x===nx&&b.y===ny)){lose();return;}
- if(board[ny][nx]===ENEMY){lose();return;}
- player={x:nx,y:ny};
- if(board[ny][nx]===ME){if(trail.length){capture();document.getElementById('message').textContent='Отлично! Территория захвачена.';} }
- else{
-  if(trail.some(p=>p.x===nx&&p.y===ny)){lose();return;}
-  trail.push({x:nx,y:ny});
-  if(trail.length>N*1.8){lose();return;}
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===WALL){seen[y][x]=true;q.push([x,y]);}
+ for(let i=0;i<q.length;i++){
+  const[x,y]=q[i];
+  for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<N&&ny<N&&!seen[ny][nx]&&board[ny][nx]===EMPTY){seen[ny][nx]=true;q.push([nx,ny]);}}
  }
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===EMPTY&&!seen[y][x])board[y][x]=owner;
 }
-function moveBots(){
- bots.forEach((b,i)=>{
-  if(Math.random()<.23){let opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(v=>!(v[0]===-b.dx&&v[1]===-b.dy));let v=opts[Math.floor(Math.random()*opts.length)];b.dx=v[0];b.dy=v[1];}
-  let nx=b.x+b.dx,ny=b.y+b.dy;if(nx<0||ny<0||nx>=N||ny>=N){b.dx=-b.dx;b.dy=-b.dy;nx=b.x+b.dx;ny=b.y+b.dy;}
-  if(board[ny][nx]===ME||trail.some(p=>p.x===nx&&p.y===ny)){b.dx=-b.dx;b.dy=-b.dy;return;}
-  b.x=nx;b.y=ny;
- });
+function losePlayer(){trail=[];player={x:10,y:21};dir={x:1,y:0};nextDir={x:1,y:0};document.getElementById('message').textContent='След оборвался! Попробуй снова.';}
+function movePlayer(){
+ dir=nextDir;const nx=player.x+dir.x,ny=player.y+dir.y;
+ if(!inside(nx,ny))return;
+ if(bots.some(b=>b.x===nx&&b.y===ny)|| (board[ny][nx]!==EMPTY&&board[ny][nx]!==ME)){losePlayer();return;}
+ player={x:nx,y:ny};
+ if(board[ny][nx]===ME){if(trail.length){captureArea(ME,trail);trail=[];updateScore();document.getElementById('message').textContent='Территория захвачена!';}}
+ else{if(trail.some(p=>p.x===nx&&p.y===ny)){losePlayer();return;}trail.push({x:nx,y:ny});if(trail.length>34)losePlayer();}
+}
+function routeHome(b){
+ const q=[[b.x,b.y,null]],seen=Array.from({length:N},()=>Array(N).fill(false));seen[b.y][b.x]=true;
+ for(let i=0;i<q.length;i++){
+  const[x,y,first]=q[i];if(board[y][x]===b.id&&first)return first;
+  for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(!inside(nx,ny)||seen[ny][nx])continue;
+   const cell=board[ny][nx];if(cell!==EMPTY&&cell!==b.id)continue;
+   if(b.trail.some(p=>p.x===nx&&p.y===ny))continue;
+   seen[ny][nx]=true;q.push([nx,ny,first||{x:dx,y:dy}]);
+  }
+ }
+ return null;
+}
+function resetBot(b){
+ b.trail=[];let target=null,distance=1e9;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===b.id){const d=Math.abs(x-b.x)+Math.abs(y-b.y);if(d<distance){distance=d;target={x,y};}}
+ if(target){b.x=target.x;b.y=target.y;}
+}
+function moveBot(b){
+ let step=b.trail.length>=6?routeHome(b):null;
+ if(!step){
+  let options=dirs.filter(([dx,dy])=>!(dx===-b.dx&&dy===-b.dy)).sort(()=>Math.random()-.5);
+  const aheadX=b.x+b.dx,aheadY=b.y+b.dy;
+  if(Math.random()<.3||!inside(aheadX,aheadY)||(board[aheadY]&&board[aheadY][aheadX]!==EMPTY)){
+   step=options.map(([x,y])=>({x,y})).find(v=>inside(b.x+v.x,b.y+v.y)&&board[b.y+v.y][b.x+v.x]===EMPTY&&!b.trail.some(p=>p.x===b.x+v.x&&p.y===b.y+v.y));
+  }
+  if(!step)step={x:b.dx,y:b.dy};
+ }
+ const nx=b.x+step.x,ny=b.y+step.y;
+ if(!inside(nx,ny)){b.dx=-b.dx;b.dy=-b.dy;return;}
+ if(b.trail.some(p=>p.x===nx&&p.y===ny)){resetBot(b);return;}
+ if(board[ny][nx]===b.id){
+  if(b.trail.length){captureArea(b.id,b.trail);b.trail=[];}
+  b.x=nx;b.y=ny;b.dx=step.x;b.dy=step.y;return;
+ }
+ if(board[ny][nx]!==EMPTY||bots.some(other=>other!==b&&other.x===nx&&other.y===ny)){resetBot(b);return;}
+ if(trail.some(p=>p.x===nx&&p.y===ny)){losePlayer();resetBot(b);return;}
+ b.x=nx;b.y=ny;b.dx=step.x;b.dy=step.y;b.trail.push({x:nx,y:ny});
+ if(b.trail.length>16)resetBot(b);
 }
 function draw(){
- ctx.clearRect(0,0,600,600);ctx.fillStyle='#0d1726';ctx.fillRect(0,0,600,600);
+ ctx.clearRect(0,0,880,880);ctx.fillStyle='#0b1422';ctx.fillRect(0,0,880,880);
+ ctx.save();ctx.beginPath();ctx.arc(440,440,422,0,Math.PI*2);ctx.fillStyle='#101d30';ctx.fill();ctx.clip();
  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-  let v=board[y][x];if(v===EMPTY)continue;
-  ctx.fillStyle=v===ME?'#27c987':'#ff647c';ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);
+  const owner=board[y][x];if(owner===WALL||owner===EMPTY)continue;
+  ctx.fillStyle=COLORS[owner];ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);
  }
- ctx.strokeStyle='#1d2b40';ctx.lineWidth=1;for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,600);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(600,i*CELL);ctx.stroke();}
- trail.forEach(p=>{ctx.fillStyle='#b5ffe0';ctx.fillRect(p.x*CELL+2,p.y*CELL+2,CELL-4,CELL-4);});
- bots.forEach(b=>{ctx.fillStyle=b.color;ctx.beginPath();ctx.arc(b.x*CELL+10,b.y*CELL+10,7,0,Math.PI*2);ctx.fill();});
- ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x*CELL+10,player.y*CELL+10,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#123';ctx.lineWidth=2;ctx.stroke();
+ ctx.strokeStyle='#263750';ctx.lineWidth=1;
+ for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,880);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(880,i*CELL);ctx.stroke();}
+ trail.forEach(p=>{ctx.fillStyle='#d2ffe9';ctx.fillRect(p.x*CELL+2,p.y*CELL+2,CELL-4,CELL-4);});
+ bots.forEach(b=>{
+  b.trail.forEach(p=>{ctx.fillStyle=COLORS[b.id];ctx.globalAlpha=.65;ctx.fillRect(p.x*CELL+2,p.y*CELL+2,CELL-4,CELL-4);});
+  ctx.globalAlpha=1;ctx.fillStyle=COLORS[b.id];ctx.beginPath();ctx.arc(b.x*CELL+10,b.y*CELL+10,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+ });
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x*CELL+10,player.y*CELL+10,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#102';ctx.lineWidth=2;ctx.stroke();
+ ctx.restore();ctx.beginPath();ctx.arc(440,440,422,0,Math.PI*2);ctx.strokeStyle='#6d829f';ctx.lineWidth=5;ctx.stroke();
 }
-function stepGame(){if(!running)return;movePlayer();if(step++%2===0)moveBots();draw();}
-document.addEventListener('keydown',e=>{let map={ArrowUp:'up',w:'up',ArrowDown:'down',s:'down',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'};if(map[e.key]){e.preventDefault();setDirection(map[e.key]);}});
-document.querySelectorAll('[data-dir]').forEach(btn=>{btn.addEventListener('pointerdown',e=>{e.preventDefault();setDirection(btn.dataset.dir);});});
-let touch=null;canvas.addEventListener('touchstart',e=>{let t=e.changedTouches[0];touch={x:t.clientX,y:t.clientY};},{passive:true});
-canvas.addEventListener('touchend',e=>{if(!touch)return;let t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;if(Math.max(Math.abs(dx),Math.abs(dy))>12)setDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));touch=null;},{passive:true});
-document.getElementById('restart').addEventListener('click',fresh);
-fresh();setInterval(stepGame,125);
+function gameStep(){movePlayer();if(tick%2===0)bots.forEach(moveBot);tick++;draw();}
+document.addEventListener('keydown',e=>{const m={ArrowUp:'up',w:'up',ArrowDown:'down',s:'down',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'};if(m[e.key]){e.preventDefault();setDirection(m[e.key]);}});
+document.querySelectorAll('[data-dir]').forEach(btn=>btn.addEventListener('pointerdown',e=>{e.preventDefault();setDirection(btn.dataset.dir);}));
+let touch=null;canvas.addEventListener('touchstart',e=>{const t=e.changedTouches[0];touch={x:t.clientX,y:t.clientY};},{passive:true});
+canvas.addEventListener('touchend',e=>{if(!touch)return;const t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;if(Math.max(Math.abs(dx),Math.abs(dy))>12)setDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));touch=null;},{passive:true});
+document.getElementById('restart').addEventListener('click',fresh);fresh();setInterval(gameStep,110);
 })();
 </script>
 </body>
