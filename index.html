@@ -157,19 +157,50 @@ function sampleSegment(a,b,spacing=3){
  for(let i=1;i<=n;i++){const t=i/n;out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}
  return out;
 }
+function nearestOwnedCell(id,x,y){
+ let best=-1,bestD=Infinity;
+ const gx=Math.floor(x/S),gy=Math.floor(y/S);
+ for(let r=0;r<=C;r+=4){
+  const x0=Math.max(0,gx-r),x1=Math.min(C-1,gx+r),y0=Math.max(0,gy-r),y1=Math.min(C-1,gy+r);
+  for(let xx=x0;xx<=x1;xx++)for(const yy of [y0,y1]){
+   const i=yy*C+xx;if(land[i]!==id)continue;
+   const d=(xx+.5-gx)**2+(yy+.5-gy)**2;if(d<bestD){bestD=d;best=i;}
+  }
+  for(let yy=y0+1;yy<y1;yy++)for(const xx of [x0,x1]){
+   const i=yy*C+xx;if(land[i]!==id)continue;
+   const d=(xx+.5-gx)**2+(yy+.5-gy)**2;if(d<bestD){bestD=d;best=i;}
+  }
+  if(best>=0&&bestD<=(r+2)*(r+2))break;
+ }
+ return best;
+}
+function keepSingleTerritory(id,seed){
+ if(seed<0||land[seed]!==id)return;
+ const seen=new Uint8Array(C*C),queue=new Int32Array(C*C);let head=0,tail=0;
+ seen[seed]=1;queue[tail++]=seed;
+ while(head<tail){
+  const i=queue[head++],x=i%C,y=(i/C)|0;
+  for(const ni of [x>0?i-1:-1,x<C-1?i+1:-1,y>0?i-C:-1,y<C-1?i+C:-1]){
+   if(ni>=0&&!seen[ni]&&land[ni]===id){seen[ni]=1;queue[tail++]=ni;}
+  }
+ }
+ // A player owns only the connected landmass attached to their original base.
+ for(let i=0;i<land.length;i++)if(land[i]===id&&!seen[i])land[i]=EMPTY;
+}
 function kill(p,reason,killer=null){
  if(!p.alive)return;
- // Preserve the exposed trail before clearing it: the victor inherits both
- // the defeated player's owned cells and the complete vulnerable trail.
  const defeatedTrail=p.trail.slice();
+ // Remember the victor's existing connected territory before taking anything.
+ const victorCore=killer&&killer.alive&&killer!==p?nearestOwnedCell(killer.id,killer.x,killer.y):-1;
  p.alive=false;
  p.trail=[];p.outside=false;p.homeTarget=null;
  if(killer&&killer.alive&&killer!==p){
   for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=killer.id;
   if(defeatedTrail.length)stamp(killer.id,defeatedTrail,2.9);
-  if(killer.isHuman)msg.textContent='Соперник побеждён! Его территория и след теперь твои.';
-  else if(p.isHuman)msg.textContent='Ты выбыл из игры. Соперник забрал твою территорию и след.';
-  else msg.textContent=(names[killer.id]||'Соперник')+' забрал территорию и след '+(names[p.id]||'проигравшего')+'.';
+  keepSingleTerritory(killer.id,victorCore);
+  if(killer.isHuman)msg.textContent='Соперник побеждён! Его связанная территория теперь твоя.';
+  else if(p.isHuman)msg.textContent='Ты выбыл из игры. Соперник забрал твою связанную территорию.';
+  else msg.textContent=(names[killer.id]||'Соперник')+' захватил связанную территорию '+(names[p.id]||'проигравшего')+'.';
  }else if(!p.isHuman){
   for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;
  }
