@@ -142,16 +142,18 @@ function sampleSegment(a,b,spacing=3){
 }
 function kill(p,reason,killer=null){
  if(!p.alive)return;
+ // Preserve the exposed trail before clearing it: the victor inherits both
+ // the defeated player's owned cells and the complete vulnerable trail.
+ const defeatedTrail=p.trail.slice();
  p.alive=false;
  p.trail=[];p.outside=false;p.homeTarget=null;
  if(killer&&killer.alive&&killer!==p){
-  // The player who eliminates an opponent inherits all of their territory.
   for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=killer.id;
-  if(killer.isHuman)msg.textContent='Соперник побеждён! Его территория теперь твоя.';
-  else if(p.isHuman)msg.textContent='Ты выбыл из игры. Соперник захватил твою территорию.';
-  else msg.textContent=(names[killer.id]||'Соперник')+' захватил территорию '+(names[p.id]||'проигравшего')+'.';
+  if(defeatedTrail.length)stamp(killer.id,defeatedTrail,2.9);
+  if(killer.isHuman)msg.textContent='Соперник побеждён! Его территория и след теперь твои.';
+  else if(p.isHuman)msg.textContent='Ты выбыл из игры. Соперник забрал твою территорию и след.';
+  else msg.textContent=(names[killer.id]||'Соперник')+' забрал территорию и след '+(names[p.id]||'проигравшего')+'.';
  }else if(!p.isHuman){
-  // A bot that runs out of trail without being defeated leaves neutral land.
   for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;
  }
  updateScore();
