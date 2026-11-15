@@ -12,21 +12,19 @@ header{display:flex;align-items:center;justify-content:space-between;gap:8px;mar
 .stats{display:flex;gap:5px}.pill{background:#1b2a40;border:1px solid #344761;border-radius:10px;padding:6px 9px;font-size:12px;white-space:nowrap}
 .stage{position:relative;background:#111d30;border:1px solid #344761;border-radius:16px;padding:6px;box-shadow:0 12px 36px #0007}
 canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;touch-action:none}
-#joystick{position:absolute;right:22px;bottom:22px;width:116px;height:116px;border-radius:50%;background:#17263abf;border:2px solid #a8bfd455;touch-action:none;display:grid;place-items:center;user-select:none}
-#knob{width:48px;height:48px;border-radius:50%;background:#d8e8f7d9;border:2px solid #fff;box-shadow:0 3px 12px #0008;pointer-events:none}
 .bottom{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:10px 2px 0;flex-wrap:wrap}.hint{font-size:12px;color:#aebed2;line-height:1.35;flex:1;min-width:190px}
 button{border:0;border-radius:11px;padding:10px 14px;background:#32cf8b;color:#062116;font-weight:800;font-size:14px}
 #message{text-align:center;color:#b7c8dc;font-size:12px;min-height:18px;margin:8px 0 2px}
-@media(max-width:430px){body{padding:5px}.stage{padding:4px;border-radius:13px}#joystick{width:98px;height:98px;right:14px;bottom:14px}#knob{width:42px;height:42px}.pill{padding:5px 7px;font-size:11px}}
+@media(max-width:430px){body{padding:5px}.stage{padding:4px;border-radius:13px}.pill{padding:5px 7px;font-size:11px}}
 </style>
 </head>
 <body><main class="app">
 <header><h1>🟢 TERRITORY IO</h1><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div></div></header>
 <div class="stage">
 <canvas id="game" width="960" height="960" aria-label="Круглая игровая арена"></canvas>
-<div id="joystick"><div id="knob"></div></div>
+
 </div>
-<div class="bottom"><div class="hint">Удерживай джойстик и веди в нужную сторону. Выйди из своей зоны, нарисуй петлю и вернись. Не дай соперникам пересечь твой след!</div><button id="restart">Заново</button></div>
+<div class="bottom"><div class="hint">Веди пальцем по арене в нужную сторону — персонаж будет поворачивать за пальцем. Выйди из своей зоны, нарисуй петлю и вернись.</div><button id="restart">Заново</button></div>
 <div id="message">Захватывай территорию и остерегайся открытого следа.</div>
 </main>
 <script>
@@ -38,7 +36,7 @@ const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
-let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),joyActive=false,joyPointer=null,joyAngle=0,keys={};
+let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,keys={};
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -111,8 +109,7 @@ function reset(){
 function angleDiff(a,b){return Math.atan2(Math.sin(b-a),Math.cos(b-a));}
 function steer(p,dt){
  if(p.isHuman){
-  if(joyActive)p.targetAngle=joyAngle;
-  else{
+  if(!touchActive){
    let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;
    if(dx||dy)p.targetAngle=Math.atan2(dy,dx);
   }
@@ -189,12 +186,24 @@ function loop(now){const dt=Math.min((now-last)/1000||0,0.035);last=now;
  for(const p of players)moveOne(p,dt);
  if(frame++%8===0)draw();requestAnimationFrame(loop);
 }
-const joy=document.getElementById('joystick'),knob=document.getElementById('knob');
-joy.addEventListener('pointerdown',e=>{joyActive=true;joyPointer=e.pointerId;joy.setPointerCapture(e.pointerId);updateJoy(e);});
-joy.addEventListener('pointermove',e=>{if(joyActive&&e.pointerId===joyPointer)updateJoy(e);});
-function updateJoy(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy;joyAngle=Math.atan2(dy,dx);const len=Math.min(Math.hypot(dx,dy),r.width*.34),a=Math.atan2(dy,dx);knob.style.transform='translate('+Math.cos(a)*len+'px,'+Math.sin(a)*len+'px)';}
-function endJoy(e){if(e.pointerId!==joyPointer)return;joyActive=false;joyPointer=null;knob.style.transform='translate(0,0)';}
-joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
+function steerTowardFinger(e){
+ const rect=canvas.getBoundingClientRect();
+ const x=(e.clientX-rect.left)*W/rect.width;
+ const y=(e.clientY-rect.top)*W/rect.height;
+ const dx=x-player.x,dy=y-player.y;
+ if(Math.hypot(dx,dy)>8)player.targetAngle=Math.atan2(dy,dx);
+}
+canvas.addEventListener('pointerdown',e=>{
+ if(e.pointerType==='mouse'&&e.button!==0)return;
+ touchActive=true;touchPointer=e.pointerId;
+ canvas.setPointerCapture(e.pointerId);steerTowardFinger(e);e.preventDefault();
+});
+canvas.addEventListener('pointermove',e=>{
+ if(touchActive&&e.pointerId===touchPointer){steerTowardFinger(e);e.preventDefault();}
+});
+function endTouch(e){if(e.pointerId!==touchPointer)return;touchActive=false;touchPointer=null;}
+canvas.addEventListener('pointerup',endTouch);
+canvas.addEventListener('pointercancel',endTouch);
 document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){keys[e.key]=true;e.preventDefault();}});
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
 document.getElementById('restart').addEventListener('click',reset);
