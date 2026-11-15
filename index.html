@@ -55,20 +55,20 @@ function setDirection(d){
  if(!v||(v.x===-dir.x&&v.y===-dir.y))return;nextDir=v;
 }
 function captureArea(owner,path){
- for(const p of path)if(inside(p.x,p.y)&&board[p.y][p.x]===EMPTY)board[p.y][p.x]=owner;
+ for(const p of path)if(inside(p.x,p.y)&&board[p.y][p.x]!==WALL)board[p.y][p.x]=owner;
  const seen=Array.from({length:N},()=>Array(N).fill(false)),q=[];
  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===WALL){seen[y][x]=true;q.push([x,y]);}
  for(let i=0;i<q.length;i++){
   const[x,y]=q[i];
-  for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<N&&ny<N&&!seen[ny][nx]&&board[ny][nx]===EMPTY){seen[ny][nx]=true;q.push([nx,ny]);}}
+  for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<N&&ny<N&&!seen[ny][nx]&&board[ny][nx]!==owner&&board[ny][nx]!==WALL){seen[ny][nx]=true;q.push([nx,ny]);}}
  }
- for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]===EMPTY&&!seen[y][x])board[y][x]=owner;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]!==WALL&&board[y][x]!==owner&&!seen[y][x])board[y][x]=owner;
 }
 function losePlayer(){trail=[];player={x:10,y:21};dir={x:1,y:0};nextDir={x:1,y:0};document.getElementById('message').textContent='След оборвался! Попробуй снова.';}
 function movePlayer(){
  dir=nextDir;const nx=player.x+dir.x,ny=player.y+dir.y;
  if(!inside(nx,ny))return;
- if(bots.some(b=>b.x===nx&&b.y===ny)|| (board[ny][nx]!==EMPTY&&board[ny][nx]!==ME)){losePlayer();return;}
+ if(bots.some(b=>b.x===nx&&b.y===ny)){losePlayer();return;}
  player={x:nx,y:ny};
  if(board[ny][nx]===ME){if(trail.length){captureArea(ME,trail);trail=[];updateScore();document.getElementById('message').textContent='Территория захвачена!';}}
  else{if(trail.some(p=>p.x===nx&&p.y===ny)){losePlayer();return;}trail.push({x:nx,y:ny});if(trail.length>34)losePlayer();}
@@ -78,7 +78,7 @@ function routeHome(b){
  for(let i=0;i<q.length;i++){
   const[x,y,first]=q[i];if(board[y][x]===b.id&&first)return first;
   for(const[dx,dy]of dirs){const nx=x+dx,ny=y+dy;if(!inside(nx,ny)||seen[ny][nx])continue;
-   const cell=board[ny][nx];if(cell!==EMPTY&&cell!==b.id)continue;
+   const cell=board[ny][nx];if(cell===WALL||cell===b.id)continue;
    if(b.trail.some(p=>p.x===nx&&p.y===ny))continue;
    seen[ny][nx]=true;q.push([nx,ny,first||{x:dx,y:dy}]);
   }
@@ -96,7 +96,7 @@ function moveBot(b){
   let options=dirs.filter(([dx,dy])=>!(dx===-b.dx&&dy===-b.dy)).sort(()=>Math.random()-.5);
   const aheadX=b.x+b.dx,aheadY=b.y+b.dy;
   if(Math.random()<.3||!inside(aheadX,aheadY)||(board[aheadY]&&board[aheadY][aheadX]!==EMPTY)){
-   step=options.map(([x,y])=>({x,y})).find(v=>inside(b.x+v.x,b.y+v.y)&&board[b.y+v.y][b.x+v.x]===EMPTY&&!b.trail.some(p=>p.x===b.x+v.x&&p.y===b.y+v.y));
+   step=options.map(([x,y])=>({x,y})).find(v=>inside(b.x+v.x,b.y+v.y)&&board[b.y+v.y][b.x+v.x]!==WALL&&board[b.y+v.y][b.x+v.x]!==b.id&&!b.trail.some(p=>p.x===b.x+v.x&&p.y===b.y+v.y));
   }
   if(!step)step={x:b.dx,y:b.dy};
  }
@@ -107,7 +107,7 @@ function moveBot(b){
   if(b.trail.length){captureArea(b.id,b.trail);b.trail=[];}
   b.x=nx;b.y=ny;b.dx=step.x;b.dy=step.y;return;
  }
- if(board[ny][nx]!==EMPTY||bots.some(other=>other!==b&&other.x===nx&&other.y===ny)){resetBot(b);return;}
+ if(board[ny][nx]===WALL||bots.some(other=>other!==b&&other.x===nx&&other.y===ny)){resetBot(b);return;}
  if(trail.some(p=>p.x===nx&&p.y===ny)){losePlayer();resetBot(b);return;}
  b.x=nx;b.y=ny;b.dx=step.x;b.dy=step.y;b.trail.push({x:nx,y:ny});
  if(b.trail.length>16)resetBot(b);
