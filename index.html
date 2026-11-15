@@ -151,7 +151,7 @@ function moveOne(p,dt){
  const from={x:p.x,y:p.y},to={x:p.x+Math.cos(p.angle)*p.speed*dt,y:p.y+Math.sin(p.angle)*p.speed*dt};
  if(Math.hypot(to.x-CX,to.y-CY)>R-8){p.targetAngle=Math.atan2(CY-p.y,CX-p.x);p.angle+=angleDiff(p.angle,p.targetAngle)*.8;return;}
  for(const other of players)if(other!==p&&dist(to,other)<13){if(other.trail.length)kill(other,other.isHuman?'Твой след пересекли!':'');}
- if(checkTrailHit(p,from,to)){if(p.isHuman)kill(p,'Ты столкнулся со следом соперника!');return;}
+ if(checkTrailHit(p,from,to))return;
  p.x=to.x;p.y=to.y;
  const own=ownerAt(p.x,p.y)===p.id;
  if(!own){
