@@ -140,21 +140,27 @@ function sampleSegment(a,b,spacing=3){
  for(let i=1;i<=n;i++){const t=i/n;out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}
  return out;
 }
-function kill(p,reason){
+function kill(p,reason,killer=null){
  if(!p.alive)return;
  p.alive=false;
  p.trail=[];p.outside=false;p.homeTarget=null;
- // Eliminated bots leave no territory behind: their cells become neutral.
- if(!p.isHuman){
+ if(killer&&killer.alive&&killer!==p){
+  // The player who eliminates an opponent inherits all of their territory.
+  for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=killer.id;
+  if(killer.isHuman)msg.textContent='Соперник побеждён! Его территория теперь твоя.';
+  else if(p.isHuman)msg.textContent='Ты выбыл из игры. Соперник захватил твою территорию.';
+  else msg.textContent=(names[killer.id]||'Соперник')+' захватил территорию '+(names[p.id]||'проигравшего')+'.';
+ }else if(!p.isHuman){
+  // A bot that runs out of trail without being defeated leaves neutral land.
   for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;
-  updateScore();
  }
+ updateScore();
  terrainDirty=true;
  if(p.isHuman){
   touchActive=false;touchPointer=null;touchLast=null;
-  msg.textContent=reason||'Ты выбыл из игры! Нажми «Заново», чтобы сыграть ещё раз.';
- }else{
-  msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры! Его территория стала нейтральной.';
+  if(!killer)msg.textContent=reason||'Ты выбыл из игры! Нажми «Заново», чтобы сыграть ещё раз.';
+ }else if(!killer){
+  msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры!';
  }
 }
 function checkTrailHit(mover,from,to){
@@ -163,7 +169,7 @@ function checkTrailHit(mover,from,to){
   if(other===mover||!other.trail.length)continue;
   for(let i=0;i<other.trail.length;i+=2){
    if(dist(to,other.trail[i])<27){
-    kill(other,other.isHuman?'Твой след пересекли!':'');
+    kill(other,other.isHuman?'Твой след пересекли!':'',p);
     return true;
    }
   }
@@ -188,7 +194,7 @@ function moveOne(p,dt){
    p.targetAngle=p.angle;
   }
  }
- for(const other of players)if(other!==p&&dist(to,other)<39){if(other.trail.length)kill(other,other.isHuman?'Твой след пересекли!':'');}
+ for(const other of players)if(other!==p&&dist(to,other)<39){if(other.trail.length)kill(other,other.isHuman?'Твой след пересекли!':'',p);}
  if(checkTrailHit(p,from,to))return;
  p.x=to.x;p.y=to.y;
  const own=ownerAt(p.x,p.y)===p.id;
@@ -224,6 +230,7 @@ function draw(){
   // Build smooth contours with marching squares. Unlike tracing cell edges,
   // this interpolates the boundary halfway between ownership samples and
   // handles diagonal contacts without following staircase-shaped grid edges.
+  if(!initialTerrain){
   for(let id=1;id<=4;id++){
    const segments=[];
    const owns=(x,y)=>x>=0&&y>=0&&x<C&&y<C&&land[y*C+x]===id;
@@ -266,6 +273,19 @@ function draw(){
      ei=choices.find(j=>!segments[j].used);
     }
     if(chain.length<4)continue;
+    // Two corner-cutting passes soften residual bends so the filled land
+    // has the same rounded visual language as the player's thick trail.
+    let rounded=chain.slice(0,-1);
+    for(let pass=0;pass<2;pass++){
+     const next=[];
+     for(let j=0;j<rounded.length;j++){
+      const p=rounded[j],q=rounded[(j+1)%rounded.length];
+      next.push([p[0]*.75+q[0]*.25,p[1]*.75+q[1]*.25]);
+      next.push([p[0]*.25+q[0]*.75,p[1]*.25+q[1]*.75]);
+     }
+     rounded=next;
+    }
+    chain.splice(0,chain.length,...rounded,rounded[0]);
     const first=chain[0],last=chain[chain.length-1];
     if(key(first)!==key(last))continue;
     tctx.moveTo((first[0]+last[0])/2,(first[1]+last[1])/2);
@@ -276,6 +296,7 @@ function draw(){
     tctx.closePath();
    }
    tctx.fill('evenodd');tctx.stroke();tctx.restore();
+  }
   }
   // The four starting bases are true vector circles, not circles approximated
   // by the ownership grid. Keep them visible until the first territory capture.
@@ -295,7 +316,7 @@ function draw(){
   }
   terrainDirty=false;
  }
- ctx.imageSmoothingEnabled=false;
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  ctx.drawImage(terrainCanvas,0,0);
  if(initialTerrain){
   const bases=[
