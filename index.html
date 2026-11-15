@@ -37,7 +37,7 @@ const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.hei
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
-let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
+let land,players,player,frame=0,initialTerrain=true,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -77,6 +77,7 @@ function nearestLand(id,x,y){
  return bestPoint;
 }
 function capture(id,path){
+ initialTerrain=false;
  stamp(id,path,2.7);
  // Flood the cells connected to the circular arena's outside through non-owned land.
  const seen=new Uint8Array(C*C),queue=new Int32Array(C*C);let head=0,tail=0;
@@ -105,7 +106,7 @@ function reset(){
  seedBase(2,690*SCALE,285*SCALE,57*SCALE);seedBase(3,690*SCALE,680*SCALE,57*SCALE);seedBase(4,270*SCALE,700*SCALE,57*SCALE);
  player=makePlayer(1,455*SCALE,480*SCALE,0,true);
  players=[player,makePlayer(2,690*SCALE,285*SCALE,2.5),makePlayer(3,690*SCALE,680*SCALE,-2),makePlayer(4,270*SCALE,700*SCALE,-.2)];
- frame=0;cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();msg.textContent='Поле увеличено в 3 раза. Камера плавно следует за тобой.';draw();
+ frame=0;initialTerrain=true;cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();msg.textContent='Поле увеличено в 3 раза. Камера плавно следует за тобой.';draw();
 }
 function angleDiff(a,b){return Math.atan2(Math.sin(b-a),Math.cos(b-a));}
 function steer(p,dt){
@@ -271,6 +272,22 @@ function draw(){
    }
    tctx.fill('evenodd');tctx.stroke();tctx.restore();
   }
+  // The four starting bases are true vector circles, not circles approximated
+  // by the ownership grid. Keep them visible until the first territory capture.
+  if(initialTerrain){
+   const bases=[
+    {id:1,x:390*SCALE,y:480*SCALE,r:68*SCALE},
+    {id:2,x:690*SCALE,y:285*SCALE,r:57*SCALE},
+    {id:3,x:690*SCALE,y:680*SCALE,r:57*SCALE},
+    {id:4,x:270*SCALE,y:700*SCALE,r:57*SCALE}
+   ];
+   for(const b of bases){
+    const owner=players.find(p=>p.id===b.id);
+    if(!owner||!owner.alive)continue;
+    tctx.beginPath();tctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    tctx.fillStyle=COLORS[b.id];tctx.fill();
+   }
+  }
   terrainDirty=false;
  }
  ctx.imageSmoothingEnabled=false;
@@ -287,7 +304,7 @@ function draw(){
  }
  ctx.restore();
  miniCtx.clearRect(0,0,240,240);miniCtx.fillStyle='#0b1422';miniCtx.fillRect(0,0,240,240);
- miniCtx.imageSmoothingEnabled=false;miniCtx.drawImage(mapCanvas,0,0,240,240);
+ miniCtx.imageSmoothingEnabled=true;miniCtx.imageSmoothingQuality='high';miniCtx.drawImage(terrainCanvas,0,0,240,240);
  miniCtx.beginPath();miniCtx.arc(120,120,R/W*240,0,Math.PI*2);miniCtx.strokeStyle='#d8e5f5';miniCtx.lineWidth=2;miniCtx.stroke();
  for(const p of players){if(!p.alive)continue;miniCtx.beginPath();miniCtx.arc(p.x/W*240,p.y/W*240,p.isHuman?4:3,0,Math.PI*2);miniCtx.fillStyle=COLORS[p.id];miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
  const rx=cameraX/W*240,ry=cameraY/W*240,rw=VIEW_W/W*240,rh=VIEW_H/W*240;
