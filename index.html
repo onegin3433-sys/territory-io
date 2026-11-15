@@ -141,12 +141,17 @@ function kill(p,reason){
  if(!p.alive)return;
  p.alive=false;
  p.trail=[];p.outside=false;p.homeTarget=null;
+ // Eliminated bots leave no territory behind: their cells become neutral.
+ if(!p.isHuman){
+  for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;
+  updateScore();
+ }
  terrainDirty=true;
  if(p.isHuman){
   touchActive=false;touchPointer=null;touchLast=null;
   msg.textContent=reason||'Ты выбыл из игры! Нажми «Заново», чтобы сыграть ещё раз.';
  }else{
-  msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры!';
+  msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры! Его территория стала нейтральной.';
  }
 }
 function checkTrailHit(mover,from,to){
@@ -209,7 +214,10 @@ function draw(){
   for(let i=0;i<land.length;i++){const id=land[i],col=id===OUT?[12,20,34]:id===EMPTY?[23,39,60]:hex(COLORS[id]);const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;}
   mctx.putImageData(img,0,0);terrainDirty=false;
  }
- ctx.imageSmoothingEnabled=false;ctx.drawImage(mapCanvas,0,0,W,W);ctx.imageSmoothingEnabled=true;
+ // Smooth interpolation softens the coarse cell edges into clean territory borders.
+ ctx.imageSmoothingEnabled=true;
+ ctx.imageSmoothingQuality='high';
+ ctx.drawImage(mapCanvas,0,0,W,W);
  ctx.strokeStyle='#ffffff0b';ctx.lineWidth=3;
  for(let r=210;r<R;r+=210){ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);ctx.stroke();}
  for(const p of players){
