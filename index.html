@@ -24,7 +24,7 @@ button{border:0;border-radius:11px;padding:10px 14px;background:#32cf8b;color:#0
 <canvas id="game" width="960" height="960" aria-label="Круглая игровая арена"></canvas>
 
 </div>
-<div class="bottom"><div class="hint">Веди пальцем по арене в нужную сторону — персонаж будет поворачивать за пальцем. Выйди из своей зоны, нарисуй петлю и вернись.</div><button id="restart">Заново</button></div>
+<div class="bottom"><div class="hint">Проводи пальцем в нужную сторону в любой части арены — персонаж повернёт туда. Выйди из своей зоны, нарисуй петлю и вернись.</div><button id="restart">Заново</button></div>
 <div id="message">Захватывай территорию и остерегайся открытого следа.</div>
 </main>
 <script>
@@ -36,7 +36,7 @@ const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
-let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,keys={};
+let land,players,player,frame=0,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -186,22 +186,27 @@ function loop(now){const dt=Math.min((now-last)/1000||0,0.035);last=now;
  for(const p of players)moveOne(p,dt);
  if(frame++%8===0)draw();requestAnimationFrame(loop);
 }
-function steerTowardFinger(e){
+function steerByFingerMovement(e){
  const rect=canvas.getBoundingClientRect();
- const x=(e.clientX-rect.left)*W/rect.width;
- const y=(e.clientY-rect.top)*W/rect.height;
- const dx=x-player.x,dy=y-player.y;
- if(Math.hypot(dx,dy)>8)player.targetAngle=Math.atan2(dy,dx);
+ const x=e.clientX-rect.left,y=e.clientY-rect.top;
+ if(touchLast){
+  const dx=x-touchLast.x,dy=y-touchLast.y;
+  // Direction comes from the finger's movement, not its position on the arena.
+  if(Math.hypot(dx,dy)>2.5)player.targetAngle=Math.atan2(dy,dx);
+ }
+ touchLast={x,y};
 }
 canvas.addEventListener('pointerdown',e=>{
  if(e.pointerType==='mouse'&&e.button!==0)return;
  touchActive=true;touchPointer=e.pointerId;
- canvas.setPointerCapture(e.pointerId);steerTowardFinger(e);e.preventDefault();
+ const rect=canvas.getBoundingClientRect();
+ touchLast={x:e.clientX-rect.left,y:e.clientY-rect.top};
+ canvas.setPointerCapture(e.pointerId);e.preventDefault();
 });
 canvas.addEventListener('pointermove',e=>{
- if(touchActive&&e.pointerId===touchPointer){steerTowardFinger(e);e.preventDefault();}
+ if(touchActive&&e.pointerId===touchPointer){steerByFingerMovement(e);e.preventDefault();}
 });
-function endTouch(e){if(e.pointerId!==touchPointer)return;touchActive=false;touchPointer=null;}
+function endTouch(e){if(e.pointerId!==touchPointer)return;touchActive=false;touchPointer=null;touchLast=null;}
 canvas.addEventListener('pointerup',endTouch);
 canvas.addEventListener('pointercancel',endTouch);
 document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){keys[e.key]=true;e.preventDefault();}});
