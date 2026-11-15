@@ -94,7 +94,7 @@ function capture(id,path){
  updateScore();terrainDirty=true;
 }
 function makePlayer(id,x,y,angle,isHuman=false){
- return{id,x,y,angle,speed:(isHuman?170:125)*SCALE,trail:[],outside:false,turn:0,think:0,targetAngle:angle,isHuman,alive:true};
+ return{id,x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:0,targetAngle:angle,isHuman,alive:true};
 }
 function reset(){
  land=new Uint8Array(C*C);land.fill(OUT);
@@ -144,19 +144,19 @@ function checkTrailHit(mover,from,to){
 }
 function moveOne(p,dt){
  steer(p,dt);
- const from={x:p.x,y:p.y},to={x:p.x+Math.cos(p.angle)*p.speed*dt,y:p.y+Math.sin(p.angle)*p.speed*dt};
+ const from={x:p.x,y:p.y};let to={x:p.x+Math.cos(p.angle)*p.speed*dt,y:p.y+Math.sin(p.angle)*p.speed*dt};
  const radial=Math.hypot(to.x-CX,to.y-CY);
  if(radial>R-9){
-  // Keep the player inside the arena and slide along the circular edge, without bouncing.
+  // Project the attempted move onto the inner edge, then process it normally
+  // so the player's trail is still recorded while sliding along the boundary.
   const nx=(to.x-CX)/radial,ny=(to.y-CY)/radial;
   const vx=Math.cos(p.angle),vy=Math.sin(p.angle),outward=vx*nx+vy*ny;
   const tx=vx-outward*nx,ty=vy-outward*ny;
-  p.x=CX+nx*(R-9);p.y=CY+ny*(R-9);
+  to.x=CX+nx*(R-9);to.y=CY+ny*(R-9);
   if(Math.hypot(tx,ty)>0.001){
    p.angle=Math.atan2(ty,tx);
    p.targetAngle=p.angle;
   }
-  return;
  }
  for(const other of players)if(other!==p&&dist(to,other)<39){if(other.trail.length)kill(other,other.isHuman?'Твой след пересекли!':'');}
  if(checkTrailHit(p,from,to))return;
@@ -164,11 +164,11 @@ function moveOne(p,dt){
  const own=ownerAt(p.x,p.y)===p.id;
  if(!own){
   p.outside=true;
-  const samples=sampleSegment(from,to,7.2);
+  const samples=sampleSegment(from,to,3.6);
   p.trail.push(...samples);
   if(p.trail.length>500){kill(p,p.isHuman?'Слишком длинный след — вернись на свою территорию!':'');return;}
  }else if(p.outside&&p.trail.length){
-  const closing=sampleSegment(from,to,2.4);p.trail.push(...closing);
+  const closing=sampleSegment(from,to,3.6);p.trail.push(...closing);
   capture(p.id,p.trail);p.trail=[];p.outside=false;
   if(p.isHuman)msg.textContent='Отлично! Территория захвачена.';
  }
