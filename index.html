@@ -200,14 +200,12 @@ function keepSingleTerritory(id,seed){
 function kill(p,reason,killer=null){
  if(!p.alive)return;
  const defeatedTrail=p.trail.slice();
- // Remember the victor's existing connected territory before taking anything.
- const victorCore=killer&&killer.alive&&killer!==p?nearestOwnedCell(killer.id,killer.x,killer.y):-1;
  p.alive=false;
  p.trail=[];p.outside=false;p.homeTarget=null;
  if(killer&&killer.alive&&killer!==p){
   for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=killer.id;
   if(defeatedTrail.length)stamp(killer.id,defeatedTrail,2.9);
-  keepSingleTerritory(killer.id,victorCore);
+  // Keep every transferred cell and the full exposed trail; do not discard detached areas.
   if(killer.isHuman)msg.textContent='Соперник побеждён! Его связанная территория теперь твоя.';
   else if(p.isHuman)msg.textContent='Ты выбыл из игры. Соперник забрал твою связанную территорию.';
   else msg.textContent=(names[killer.id]||'Соперник')+' захватил связанную территорию '+(names[p.id]||'проигравшего')+'.';
