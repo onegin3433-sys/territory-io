@@ -221,52 +221,57 @@ function draw(){
   // removes the original staircase instead of merely drawing a soft line on it.
   tctx.clearRect(0,0,W,W);
   tctx.fillStyle='#0c1422';tctx.fillRect(0,0,W,W);
+  // Build smooth contours with marching squares. Unlike tracing cell edges,
+  // this interpolates the boundary halfway between ownership samples and
+  // handles diagonal contacts without following staircase-shaped grid edges.
   for(let id=1;id<=4;id++){
-   const edges=[];
-   const add=(ax,ay,bx,by)=>edges.push({a:[ax,ay],b:[bx,by],used:false});
-   for(let y=0;y<C;y++)for(let x=0;x<C;x++){
-    if(land[y*C+x]!==id)continue;
-    if(y===0||land[(y-1)*C+x]!==id)add(x,y,x+1,y);
-    if(x===C-1||land[y*C+x+1]!==id)add(x+1,y,x+1,y+1);
-    if(y===C-1||land[(y+1)*C+x]!==id)add(x+1,y+1,x,y+1);
-    if(x===0||land[y*C+x-1]!==id)add(x,y+1,x,y);
+   const segments=[];
+   const owns=(x,y)=>x>=0&&y>=0&&x<C&&y<C&&land[y*C+x]===id;
+   const point=(edge,x,y)=>{
+    if(edge===0)return [(x+1)*S,(y+.5)*S];       // top
+    if(edge===1)return [(x+1.5)*S,(y+1)*S];     // right
+    if(edge===2)return [(x+1)*S,(y+1.5)*S];    // bottom
+    return [(x+.5)*S,(y+1)*S];                  // left
+   };
+   const pairs={
+    1:[[3,0]],2:[[0,1]],3:[[3,1]],4:[[1,2]],
+    6:[[0,2]],7:[[3,2]],8:[[2,3]],9:[[2,0]],
+    11:[[2,1]],12:[[1,3]],13:[[1,0]],14:[[0,3]]
+   };
+   for(let y=-1;y<C;y++)for(let x=-1;x<C;x++){
+    const tl=owns(x,y),tr=owns(x+1,y),br=owns(x+1,y+1),bl=owns(x,y+1);
+    const code=(tl?1:0)|(tr?2:0)|(br?4:0)|(bl?8:0);
+    if(code===0||code===15)continue;
+    let links=pairs[code];
+    if(code===5)links=[[0,1],[2,3]];
+    else if(code===10)links=[[3,0],[1,2]];
+    for(const pair of links){
+     const a=point(pair[0],x,y),b=point(pair[1],x,y);
+     segments.push({a,b,used:false});
+    }
    }
-   const starts=new Map();
-   for(let i=0;i<edges.length;i++){
-    const k=edges[i].a[0]+','+edges[i].a[1];
-    if(!starts.has(k))starts.set(k,[]);
-    starts.get(k).push(i);
+   const key=p=>Math.round(p[0]*2)+','+Math.round(p[1]*2),starts=new Map();
+   for(let i=0;i<segments.length;i++){
+    const k=key(segments[i].a);if(!starts.has(k))starts.set(k,[]);starts.get(k).push(i);
    }
    tctx.save();tctx.fillStyle=COLORS[id];tctx.strokeStyle=COLORS[id];
-   tctx.lineWidth=5;tctx.lineJoin='round';tctx.lineCap='round';tctx.beginPath();
-   for(let seed=0;seed<edges.length;seed++){
-    if(edges[seed].used)continue;
+   tctx.lineWidth=4;tctx.lineJoin='round';tctx.lineCap='round';tctx.beginPath();
+   for(let seed=0;seed<segments.length;seed++){
+    if(segments[seed].used)continue;
     const chain=[];let ei=seed,guard=0;
-    while(ei!==undefined&&!edges[ei].used&&guard++<edges.length+2){
-     const e=edges[ei];e.used=true;
-     if(!chain.length)chain.push(e.a);
-     chain.push(e.b);
-     const k=e.b[0]+','+e.b[1],choices=starts.get(k)||[];
-     ei=choices.find(j=>!edges[j].used);
+    while(ei!==undefined&&!segments[ei].used&&guard++<segments.length+2){
+     const seg=segments[ei];seg.used=true;
+     if(!chain.length)chain.push(seg.a);chain.push(seg.b);
+     const choices=starts.get(key(seg.b))||[];
+     ei=choices.find(j=>!segments[j].used);
     }
     if(chain.length<4)continue;
-    let pts=chain.slice(0,-1).map(p=>[p[0]*S,p[1]*S]);
-    if(pts.length<3)continue;
-    // Three Chaikin passes turn cell-corner stair steps into a smooth,
-    // rounded contour while retaining the overall captured shape.
-    for(let pass=0;pass<3;pass++){
-     const smooth=[];
-     for(let j=0;j<pts.length;j++){
-      const a=pts[j],b=pts[(j+1)%pts.length];
-      smooth.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25]);
-      smooth.push([a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);
-     }
-     pts=smooth;
-    }
-    tctx.moveTo((pts[0][0]+pts[pts.length-1][0])/2,(pts[0][1]+pts[pts.length-1][1])/2);
-    for(let j=0;j<pts.length;j++){
-     const cur=pts[j],next=pts[(j+1)%pts.length];
-     tctx.quadraticCurveTo(cur[0],cur[1],(cur[0]+next[0])/2,(cur[1]+next[1])/2);
+    const first=chain[0],last=chain[chain.length-1];
+    if(key(first)!==key(last))continue;
+    tctx.moveTo((first[0]+last[0])/2,(first[1]+last[1])/2);
+    for(let j=0;j<chain.length-1;j++){
+     const a=chain[j],b=chain[j+1];
+     tctx.quadraticCurveTo(a[0],a[1],(a[0]+b[0])/2,(a[1]+b[1])/2);
     }
     tctx.closePath();
    }
@@ -292,6 +297,22 @@ function draw(){
  }
  ctx.imageSmoothingEnabled=false;
  ctx.drawImage(terrainCanvas,0,0);
+ if(initialTerrain){
+  const bases=[
+   {id:1,x:390*SCALE,y:480*SCALE,r:68*SCALE},
+   {id:2,x:690*SCALE,y:285*SCALE,r:57*SCALE},
+   {id:3,x:690*SCALE,y:680*SCALE,r:57*SCALE},
+   {id:4,x:270*SCALE,y:700*SCALE,r:57*SCALE}
+  ];
+  for(const b of bases){
+   const owner=players.find(p=>p.id===b.id);
+   if(!owner||!owner.alive)continue;
+   ctx.beginPath();ctx.arc(b.x,b.y,b.r+2,0,Math.PI*2);
+   ctx.fillStyle='#142238';ctx.fill();
+   ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+   ctx.fillStyle=COLORS[b.id];ctx.fill();
+  }
+ }
  ctx.strokeStyle='#ffffff0b';ctx.lineWidth=3;
  for(let r=210;r<R;r+=210){ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);ctx.stroke();}
  for(const p of players){
