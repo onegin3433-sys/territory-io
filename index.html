@@ -215,15 +215,12 @@ function draw(){
   const img=mctx.createImageData(C,C),d=img.data;
   for(let i=0;i<land.length;i++){const id=land[i],col=id===OUT?[12,20,34]:id===EMPTY?[23,39,60]:hex(COLORS[id]);const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;}
   mctx.putImageData(img,0,0);
-  // Fill the territory mask, then trace each boundary as a continuous
-  // rounded curve instead of outlining every individual square cell.
+  // Extract the territory outline from the cell map, then smooth the
+  // polygon itself with corner-cutting. Rendering only the smoothed shape
+  // removes the original staircase instead of merely drawing a soft line on it.
   tctx.clearRect(0,0,W,W);
   tctx.fillStyle='#0c1422';tctx.fillRect(0,0,W,W);
   for(let id=1;id<=4;id++){
-   tctx.fillStyle=COLORS[id];
-   for(let y=0;y<C;y++)for(let x=0;x<C;x++){
-    if(land[y*C+x]===id)tctx.fillRect(x*S,y*S,S+0.5,S+0.5);
-   }
    const edges=[];
    const add=(ax,ay,bx,by)=>edges.push({a:[ax,ay],b:[bx,by],used:false});
    for(let y=0;y<C;y++)for(let x=0;x<C;x++){
@@ -239,8 +236,8 @@ function draw(){
     if(!starts.has(k))starts.set(k,[]);
     starts.get(k).push(i);
    }
-   tctx.save();tctx.strokeStyle=COLORS[id];tctx.lineWidth=13;
-   tctx.lineJoin='round';tctx.lineCap='round';tctx.beginPath();
+   tctx.save();tctx.fillStyle=COLORS[id];tctx.strokeStyle=COLORS[id];
+   tctx.lineWidth=5;tctx.lineJoin='round';tctx.lineCap='round';tctx.beginPath();
    for(let seed=0;seed<edges.length;seed++){
     if(edges[seed].used)continue;
     const chain=[];let ei=seed,guard=0;
@@ -252,19 +249,27 @@ function draw(){
      ei=choices.find(j=>!edges[j].used);
     }
     if(chain.length<4)continue;
-    const pts=chain.slice(0,-1);
-    const n=pts.length;
-    if(n<3)continue;
-    const point=(p)=>[p[0]*S,p[1]*S];
-    const first=point(pts[0]),last=point(pts[n-1]);
-    tctx.moveTo((first[0]+last[0])/2,(first[1]+last[1])/2);
-    for(let j=0;j<n;j++){
-     const cur=point(pts[j]),next=point(pts[(j+1)%n]);
+    let pts=chain.slice(0,-1).map(p=>[p[0]*S,p[1]*S]);
+    if(pts.length<3)continue;
+    // Three Chaikin passes turn cell-corner stair steps into a smooth,
+    // rounded contour while retaining the overall captured shape.
+    for(let pass=0;pass<3;pass++){
+     const smooth=[];
+     for(let j=0;j<pts.length;j++){
+      const a=pts[j],b=pts[(j+1)%pts.length];
+      smooth.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25]);
+      smooth.push([a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);
+     }
+     pts=smooth;
+    }
+    tctx.moveTo((pts[0][0]+pts[pts.length-1][0])/2,(pts[0][1]+pts[pts.length-1][1])/2);
+    for(let j=0;j<pts.length;j++){
+     const cur=pts[j],next=pts[(j+1)%pts.length];
      tctx.quadraticCurveTo(cur[0],cur[1],(cur[0]+next[0])/2,(cur[1]+next[1])/2);
     }
     tctx.closePath();
    }
-   tctx.stroke();tctx.restore();
+   tctx.fill('evenodd');tctx.stroke();tctx.restore();
   }
   terrainDirty=false;
  }
