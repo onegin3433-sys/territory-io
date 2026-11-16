@@ -35,7 +35,7 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 </svg>
 <div><div class="brand-name">TERRITORY WARS</div><div class="brand-sub">ВОЙНЫ ТЕРРИТОРИЙ</div></div>
 </div>
-<div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div></div><button id="restart">Заново</button></div>
+<div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><button id="restart">Заново</button></div>
 <canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
 <canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
 <div id="message">Проводи пальцем в сторону движения. Полная карта — в углу.</div>
@@ -65,6 +65,32 @@ const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,initialTerrain=true,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
+const remotePlayers=new Map();let onlineSocket=null,onlinePlayerId=null,onlineCount=1,lastNetSend=0,onlineRetryTimer=null;
+const onlineStatusEl=document.getElementById('onlineStatus');
+function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text;}
+function connectOnline(){
+ if(onlineRetryTimer){clearTimeout(onlineRetryTimer);onlineRetryTimer=null;}
+ try{
+  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws');
+  onlineSocket=socket;setOnlineStatus('подключение…');
+  socket.addEventListener('open',()=>setOnlineStatus('в сети'));
+  socket.addEventListener('message',event=>{
+   let packet;try{packet=JSON.parse(event.data);}catch{return;}
+   if(packet.type==='welcome'){onlinePlayerId=packet.playerId;onlineCount=packet.players||1;setOnlineStatus(String(onlineCount));}
+   else if(packet.type==='players'){onlineCount=packet.count||1;setOnlineStatus(String(onlineCount));}
+   else if(packet.type==='player_state'&&packet.playerId!==onlinePlayerId){
+    remotePlayers.set(String(packet.playerId),{x:packet.x,y:packet.y,angle:packet.angle,trail:Array.isArray(packet.trail)?packet.trail:[],seen:performance.now()});
+   }
+  });
+  socket.addEventListener('close',()=>{if(onlineSocket===socket){onlineSocket=null;onlinePlayerId=null;setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,3000);}});
+  socket.addEventListener('error',()=>setOnlineStatus('ошибка связи'));
+ }catch{setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,5000);}
+}
+function sendOnlineState(now){
+ if(!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN||!player||now-lastNetSend<100)return;
+ lastNetSend=now;
+ try{onlineSocket.send(JSON.stringify({type:'state',x:player.x,y:player.y,angle:player.angle,trail:player.trail.slice(-120)}));}catch{}
+}
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -397,6 +423,11 @@ function draw(){
  for(const p of players){
   if(p.alive&&p.trail.length>1){ctx.beginPath();ctx.moveTo(p.trail[0].x,p.trail[0].y);for(let i=1;i<p.trail.length;i++)ctx.lineTo(p.trail[i].x,p.trail[i].y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=COLORS[p.id];ctx.lineWidth=36;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
  }
+ for(const remote of remotePlayers.values()){
+  if(remote.trail.length>1){ctx.beginPath();ctx.moveTo(remote.trail[0].x,remote.trail[0].y);for(let i=1;i<remote.trail.length;i++)ctx.lineTo(remote.trail[i].x,remote.trail[i].y);ctx.lineTo(remote.x,remote.y);ctx.strokeStyle='#55c7ff';ctx.lineWidth=30;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
+  ctx.beginPath();ctx.arc(remote.x,remote.y,29,0,Math.PI*2);ctx.fillStyle='#55c7ff';ctx.fill();ctx.lineWidth=7;ctx.strokeStyle='#f4f7ff';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(remote.x,remote.y);ctx.lineTo(remote.x+Math.cos(remote.angle)*48,remote.y+Math.sin(remote.angle)*48);ctx.strokeStyle='#102033';ctx.lineWidth=8;ctx.stroke();
+ }
  for(const p of players){
   if(!p.alive)continue;
   if(p.isHuman){
@@ -500,6 +531,7 @@ function draw(){
  miniCtx.imageSmoothingEnabled=true;miniCtx.imageSmoothingQuality='high';miniCtx.drawImage(terrainCanvas,0,0,240,240);
  miniCtx.beginPath();miniCtx.arc(120,120,R/W*240,0,Math.PI*2);miniCtx.strokeStyle='#d8e5f5';miniCtx.lineWidth=2;miniCtx.stroke();
  for(const p of players){if(!p.alive)continue;miniCtx.beginPath();miniCtx.arc(p.x/W*240,p.y/W*240,p.isHuman?4:3,0,Math.PI*2);miniCtx.fillStyle=COLORS[p.id];miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
+ for(const remote of remotePlayers.values()){miniCtx.beginPath();miniCtx.arc(remote.x/W*240,remote.y/W*240,4,0,Math.PI*2);miniCtx.fillStyle='#55c7ff';miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
  const rx=cameraX/W*240,ry=cameraY/W*240,rw=VIEW_W/W*240,rh=VIEW_H/W*240;
  miniCtx.strokeStyle='#ffffff';miniCtx.lineWidth=1.5;miniCtx.strokeRect(rx,ry,rw,rh);
 }
@@ -509,6 +541,8 @@ function loop(now){
  const dt=Math.min((now-last)/1000||0,0.035);
  performanceNowDelta=now-last||16.67;last=now;frame+=dt*60;
  for(const p of players)moveOne(p,dt);
+ sendOnlineState(now);
+ for(const [id,p] of remotePlayers){if(now-p.seen>10000)remotePlayers.delete(id);}
  draw();requestAnimationFrame(loop);
 }
 function steerByFingerMovement(e){
@@ -537,7 +571,7 @@ canvas.addEventListener('pointercancel',endTouch);
 document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){keys[e.key]=true;e.preventDefault();}});
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
 document.getElementById('restart').addEventListener('click',reset);
-reset();requestAnimationFrame(loop);
+reset();connectOnline();requestAnimationFrame(loop);
 })();
 </script>
 </body></html>
