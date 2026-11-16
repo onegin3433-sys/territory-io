@@ -67,7 +67,7 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 </div>
 <button id="playButton">ИГРАТЬ</button>
 </div></div>
-<div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><button id="restart">Заново</button></div>
+<div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><div style="display:flex;gap:5px;pointer-events:auto"><button id="soundToggle" aria-label="Включить или выключить звук">🔊 Звук</button><button id="restart">Заново</button></div></div>
 <canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
 <canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
 <div id="message">Проводи пальцем в сторону движения. Полная карта — в углу.</div>
@@ -126,6 +126,33 @@ function sendOnlineState(now){
 }
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
+let audioContext=null,soundEnabled=localStorage.getItem('territorySound')!=='off';
+const soundButton=document.getElementById('soundToggle');
+function updateSoundButton(){if(soundButton)soundButton.textContent=soundEnabled?'🔊 Звук':'🔇 Без звука';}
+function unlockAudio(){
+ if(!soundEnabled)return;
+ try{if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;audioContext=new AudioCtx();}
+ if(audioContext.state==='suspended')audioContext.resume();}catch{}
+}
+function tone(freq,duration,shape='sine',volume=.07,slide=0,delay=0){
+ if(!soundEnabled||!audioContext)return;
+ const t=audioContext.currentTime+delay,osc=audioContext.createOscillator(),gain=audioContext.createGain();
+ osc.type=shape;osc.frequency.setValueAtTime(freq,t);
+ if(slide)osc.frequency.exponentialRampToValueAtTime(Math.max(35,freq+slide),t+duration);
+ gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(volume,t+.012);
+ gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+ osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+duration+.025);
+}
+function playSound(kind){
+ if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
+ if(kind==='capture'){tone(520,.16,'sine',.075,210);tone(780,.22,'triangle',.055,180,.07);tone(1040,.26,'sine',.035,120,.14);}
+ else if(kind==='eliminate'){tone(660,.12,'triangle',.065,-180);tone(880,.18,'sine',.055,220,.09);tone(1180,.25,'sine',.04,160,.18);}
+ else if(kind==='hit'){tone(240,.2,'triangle',.08,-130);tone(115,.28,'sine',.07,-55,.08);}
+ else if(kind==='click'){tone(620,.07,'sine',.035,100);}
+ else if(kind==='start'){tone(392,.12,'sine',.05,70);tone(523,.16,'sine',.05,100,.1);tone(784,.2,'triangle',.045,120,.2);}
+}
+updateSoundButton();
+soundButton?.addEventListener('click',()=>{soundEnabled=!soundEnabled;localStorage.setItem('territorySound',soundEnabled?'on':'off');if(soundEnabled)unlockAudio();updateSoundButton();if(soundEnabled)playSound('click');});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function valid(x,y){return x>=0&&y>=0&&x<C&&y<C&&Math.hypot((x+.5)*S-CX,(y+.5)*S-CY)<=R;}
@@ -622,7 +649,7 @@ canvas.addEventListener('pointercancel',endTouch);
 document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){keys[e.key]=true;e.preventDefault();}});
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
 
-document.getElementById('restart').addEventListener('click',reset);
+document.getElementById('restart').addEventListener('click',()=>{unlockAudio();playSound('click');reset();});
 const menu=document.getElementById('mainMenu');
 document.querySelectorAll('.skin-choice').forEach(button=>{
  if(button.dataset.skin===selectedSkin)button.classList.add('selected');
