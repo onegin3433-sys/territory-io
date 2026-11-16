@@ -576,7 +576,7 @@ function loop(now){
  performanceNowDelta=now-last||16.67;last=now;frame+=dt*60;
  if(gameStarted){for(const p of players)moveOne(p,dt);sendOnlineState(now);}
  for(const [id,p] of remotePlayers){if(now-p.seen>10000)remotePlayers.delete(id);}
- draw();requestAnimationFrame(loop);
+ if(gameStarted)draw();requestAnimationFrame(loop);
 }
 function steerByFingerMovement(e){
  const rect=canvas.getBoundingClientRect();
