@@ -311,9 +311,9 @@ function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=St
 function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
 function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:p.trail.slice(-180)}))};}
 function applyWorld(world){
- if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return;
+ if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return false;
  pendingStart=false;
- const sharedLand=decodeLand(world.land);if(!sharedLand)return;
+ const sharedLand=decodeLand(world.land);if(!sharedLand)return false;
  land=sharedLand;initialTerrain=!!world.initialTerrain;
  players=world.players.filter(p=>p&&Number.isInteger(p.id)&&p.id>=1&&p.id<=4).map(data=>{
   const local=data.id===onlineSlot,p=makePlayer(data.id,data.x,data.y,data.angle,local);
@@ -322,11 +322,12 @@ function applyWorld(world){
   p.isRemote=!local;return p;
  });
  player=players.find(p=>p.id===onlineSlot)||null;
- if(!player){sendPacket({type:'request_snapshot'});return;}
+ if(!player){sendPacket({type:'request_snapshot'});return false;}
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
  if(!player.alive)showGameResult(false);else if(players.length>1&&!players.some(p=>p.id!==onlineSlot&&p.alive))showGameResult(true);
+ return true;
 }
 function ensureRosterPlayers(){
  if(!onlineIsHost||!land||!Array.isArray(players))return;
@@ -353,7 +354,7 @@ function connectOnline(){
    if(packet.type==='welcome'){
     onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
-    if(packet.snapshot){applyWorld(packet.snapshot);requestAnimationFrame(hideLoading);}
+    if(packet.snapshot){if(applyWorld(packet.snapshot))requestAnimationFrame(hideLoading);}
     else if(onlineIsHost&&pendingStart){reset();requestAnimationFrame(hideLoading);}
     else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
    }else if(packet.type==='player_joined'){
@@ -367,7 +368,7 @@ function connectOnline(){
     if(packet.type==='restart_request'||!gameStarted||gameFinished||!land){reset();}else{sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
-   }else if(packet.type==='world_snapshot'&&!onlineIsHost){applyWorld(packet.world);requestAnimationFrame(hideLoading);}
+   }else if(packet.type==='world_snapshot'&&!onlineIsHost){if(applyWorld(packet.world))requestAnimationFrame(hideLoading);}
   });
   socket.addEventListener('close',()=>{if(onlineSocket===socket){onlineSocket=null;onlinePlayerId=null;onlineIsHost=false;setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,3000);}});
   socket.addEventListener('error',()=>setOnlineStatus('ошибка связи'));
