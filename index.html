@@ -272,7 +272,7 @@ let VIEW_W=960,VIEW_H=960,cameraX=0,cameraY=0,cameraReady=false,terrainDirty=tru
 function resizeView(){const h=window.innerHeight;VIEW_H=960;VIEW_W=Math.max(320,Math.round(window.innerWidth/h*VIEW_H));canvas.width=VIEW_W;canvas.height=VIEW_H;}
 window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
-const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
+const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 let selectedSkin=localStorage.getItem('territorySkin')||'explorer';
 if(!['explorer','fox','ninja','astronaut','dragon','shark','panda','king','alien','tiger','penguin','unicorn','wolf','bee','ghost','monkey'].includes(selectedSkin))selectedSkin='explorer';
 let gameStarted=false,gameFinished=false;
@@ -309,11 +309,15 @@ function hideLoading(){
 function sendPacket(packet){if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){try{onlineSocket.send(JSON.stringify(packet));}catch{}}}
 function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=String.fromCharCode(...land.subarray(i,Math.min(i+8192,land.length)));return btoa(binary);}
 function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
-function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:p.trail.slice(-240)}))};}
+function packTrail(trail){const out=[];for(const q of trail.slice(-900))out.push(Math.round(q.x),Math.round(q.y));return out;}
+function unpackTrail(value){if(!Array.isArray(value))return[];if(value.length&&typeof value[0]==='number'){const out=[];for(let i=0;i+1<value.length;i+=2)if(Number.isFinite(value[i])&&Number.isFinite(value[i+1]))out.push({x:value[i],y:value[i+1]});return out;}return value.filter(q=>q&&Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-900);}
+function applySharedColors(colors){if(!colors||typeof colors!=='object')return;let changed=false;for(let id=1;id<=4;id++){const c=colors[id];if(typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c)&&COLORS[id]!==c){COLORS[id]=c;changed=true;}}if(changed)terrainDirty=true;}
+function worldSnapshot(){return{land:encodeLand(),initialTerrain,colors:{...COLORS},players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:packTrail(p.trail)}))};}
 function applyWorld(world){
  if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return false;
  pendingStart=false;
  const sharedLand=decodeLand(world.land);if(!sharedLand)return false;
+ applySharedColors(world.colors);
  let mapChanged=!land||land.length!==sharedLand.length;
  if(!mapChanged){for(let i=0;i<sharedLand.length;i++)if(land[i]!==sharedLand[i]){mapChanged=true;break;}}
  if(mapChanged){land=sharedLand;terrainDirty=true;updateScore();}
@@ -328,7 +332,7 @@ function applyWorld(world){
   p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
   p.netX=data.x;p.netY=data.y;
   p.alive=!!data.alive;p.outside=!!data.outside;p.isBot=!!data.isBot;
-  const snapshotTrail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
+  const snapshotTrail=unpackTrail(data.trail);
   if(!p.outside)p.trail=[];
   else if(isNew)p.trail=snapshotTrail;
   p.isRemote=!local;nextPlayers.push(p);
@@ -336,7 +340,7 @@ function applyWorld(world){
  players=nextPlayers;
  player=players.find(p=>p.id===onlineSlot)||null;
  if(!player){sendPacket({type:'request_snapshot'});return false;}
- COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
+
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  if(!cameraReady){cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;}
  updateScore();
@@ -391,7 +395,11 @@ function connectOnline(){
     if(packet.type==='restart_request'){const entry=roomRoster.find(r=>r.playerId===packet.playerId);if(entry)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}else if(!land){createArena();}else{ensureRosterPlayers();const entry=roomRoster.find(r=>r.playerId===packet.playerId),target=entry&&players.find(p=>p.id===entry.slot);if(target&&!target.alive)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
+   }else if(packet.type==='color_update'&&onlineIsHost){
+    const entry=roomRoster.find(r=>r.playerId===packet.playerId),color=packet.color;
+    if(entry&&typeof color==='string'&&/^#[0-9a-f]{6}$/i.test(color)){COLORS[entry.slot]=color;terrainDirty=true;sendWorldSnapshot(true);}
    }else if(packet.type==='players_state'&&!onlineIsHost&&Array.isArray(packet.players)){
+    applySharedColors(packet.colors);
     for(const data of packet.players){
      if(!data||!Number.isInteger(data.id))continue;
      const p=players&&players.find(q=>q.id===data.id);if(!p)continue;
@@ -399,7 +407,7 @@ function connectOnline(){
      if(Number.isFinite(data.angle))p.netAngle=data.angle;if(Number.isFinite(data.targetAngle))p.targetAngle=data.targetAngle;
      if(typeof data.alive==='boolean')p.alive=data.alive;if(typeof data.outside==='boolean')p.outside=data.outside;
      if(data.outside===false)p.trail=[];
-     else if(Array.isArray(data.trail))p.trail=data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180);
+     else if(Array.isArray(data.trail))p.trail=unpackTrail(data.trail);
      if(data.id===onlineSlot){player=p;if(!p.alive&&!gameFinished)showGameResult(false);}
     }
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){if(applyWorld(packet.world))requestAnimationFrame(hideLoading);}
@@ -416,8 +424,8 @@ function sendWorldSnapshot(force=false){
 function sendPlayerState(){
  if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
  const now=performance.now();if(now-lastPlayerStateAt<90)return;lastPlayerStateAt=now;
- const includeTrails=now-lastTrailStateAt>=250;if(includeTrails)lastTrailStateAt=now;
- sendPacket({type:'players_state',players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,...(includeTrails?{trail:p.trail.slice(-180)}:{})}))});
+ const includeTrails=now-lastTrailStateAt>=150;if(includeTrails)lastTrailStateAt=now;
+ sendPacket({type:'players_state',colors:{...COLORS},players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,...(includeTrails?{trail:packTrail(p.trail)}:{})}))});
 }
 function sendOnlineInput(angle){if(!onlineIsHost)sendPacket({type:'input',angle});}
 
@@ -1142,9 +1150,10 @@ document.querySelectorAll('.skin-choice').forEach(button=>{
  });
 });
 document.querySelectorAll('.color-choice').forEach(button=>{
- button.classList.toggle('selected',button.dataset.color===COLORS[1]);
+ button.classList.toggle('selected',button.dataset.color===COLORS[onlineSlot]);
  button.addEventListener('click',()=>{
-  COLORS[1]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[1]);playSound('click');
+  COLORS[onlineSlot]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[onlineSlot]);terrainDirty=true;playSound('click');
+  if(onlineIsHost)sendWorldSnapshot(true);else sendPacket({type:'color_update',color:COLORS[onlineSlot]});
   document.querySelectorAll('.color-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
 });
