@@ -322,7 +322,7 @@ function applyWorld(world){
  for(const data of world.players){
   if(!data||!Number.isInteger(data.id)||data.id<1||data.id>4)continue;
   const local=data.id===onlineSlot;
-  let p=players&&players.find(q=>q.id===data.id);
+  let p=players&&players.find(q=>q.id===data.id),isNew=!p;
   if(!p){p=makePlayer(data.id,data.x,data.y,data.angle,local);p.x=data.x;p.y=data.y;p.trail=[];}
   p.name=String(data.name||('Игрок '+data.id)).slice(0,18);
   p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
@@ -330,8 +330,7 @@ function applyWorld(world){
   p.alive=!!data.alive;p.outside=!!data.outside;p.isBot=!!data.isBot;
   const snapshotTrail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
   if(!p.outside)p.trail=[];
-  else if(snapshotTrail.length>=p.trail.length)p.trail=snapshotTrail;
-  else if(!p.trail.length)p.trail=snapshotTrail;
+  else if(isNew)p.trail=snapshotTrail;
   p.isRemote=!local;nextPlayers.push(p);
  }
  players=nextPlayers;
@@ -340,7 +339,7 @@ function applyWorld(world){
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  if(!cameraReady){cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;}
- if(!mapChanged)updateLeaderboard(Math.max(1,land.reduce((n,v)=>n+(v!==OUT),0)));
+ updateScore();
  if(!player.alive)showGameResult(false);else if(players.length>1&&!players.some(p=>p.id!==onlineSlot&&p.alive))showGameResult(true);
  return true;
 }
@@ -399,7 +398,8 @@ function connectOnline(){
      if(Number.isFinite(data.x))p.netX=data.x;if(Number.isFinite(data.y))p.netY=data.y;
      if(Number.isFinite(data.angle))p.netAngle=data.angle;if(Number.isFinite(data.targetAngle))p.targetAngle=data.targetAngle;
      if(typeof data.alive==='boolean')p.alive=data.alive;if(typeof data.outside==='boolean')p.outside=data.outside;
-     if(Array.isArray(data.trail))p.trail=data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180);
+     if(data.outside===false)p.trail=[];
+     else if(Array.isArray(data.trail))p.trail=data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180);
      if(data.id===onlineSlot){player=p;if(!p.alive&&!gameFinished)showGameResult(false);}
     }
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){if(applyWorld(packet.world))requestAnimationFrame(hideLoading);}
