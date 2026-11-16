@@ -83,13 +83,13 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <h1>TERRITORY WARS</h1><div class="menu-sub">ВЫБЕРИ СВОЕГО ИГРОКА И ВЫХОДИ НА АРЕНУ</div>
 <div class="menu-section">Выбери скин</div>
 <div class="skin-grid">
-<button class="skin-choice selected" data-skin="explorer"><span class="skin-icon">🐱</span>Исследователь</button>
+<button class="skin-choice" data-skin="explorer"><span class="skin-icon">🐱</span>Исследователь</button>
 <button class="skin-choice" data-skin="robot"><span class="skin-icon">🤖</span>Робот</button>
 <button class="skin-choice" data-skin="fox"><span class="skin-icon">🦊</span>Лис</button>
 </div>
 <div class="menu-section">Цвет территории</div>
 <div class="color-row">
-<button class="color-choice selected" data-color="#2ed28f" style="background:#2ed28f" aria-label="Зелёный"></button>
+<button class="color-choice" data-color="#2ed28f" style="background:#2ed28f" aria-label="Зелёный"></button>
 <button class="color-choice" data-color="#38a9ff" style="background:#38a9ff" aria-label="Синий"></button>
 <button class="color-choice" data-color="#ff5874" style="background:#ff5874" aria-label="Розовый"></button>
 <button class="color-choice" data-color="#ffc04d" style="background:#ffc04d" aria-label="Жёлтый"></button>
@@ -144,7 +144,9 @@ function resizeView(){const h=window.innerHeight;VIEW_H=960;VIEW_W=Math.max(320,
 window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
 const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
-let selectedSkin=localStorage.getItem('territorySkin')||'explorer',gameStarted=false,gameFinished=false;
+let selectedSkin=localStorage.getItem('territorySkin')||'explorer';
+if(!['explorer','robot','fox'].includes(selectedSkin))selectedSkin='explorer';
+let gameStarted=false,gameFinished=false;
 const names={1:telegramDisplayName||'Ты',2:'Блиц',3:'Тень',4:'Искра'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
@@ -832,14 +834,14 @@ document.getElementById('resultMenu').addEventListener('click',()=>{
  document.querySelectorAll(".ranking-tab").forEach(b=>b.addEventListener("click",()=>loadRanking(b.dataset.period)));
 
 document.querySelectorAll('.skin-choice').forEach(button=>{
- if(button.dataset.skin===selectedSkin)button.classList.add('selected');
+ button.classList.toggle('selected',button.dataset.skin===selectedSkin);
  button.addEventListener('click',()=>{
   selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);playSound('click');
   document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
 });
 document.querySelectorAll('.color-choice').forEach(button=>{
- if(button.dataset.color===COLORS[1])button.classList.add('selected');
+ button.classList.toggle('selected',button.dataset.color===COLORS[1]);
  button.addEventListener('click',()=>{
   COLORS[1]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[1]);playSound('click');
   document.querySelectorAll('.color-choice').forEach(b=>b.classList.toggle('selected',b===button));
