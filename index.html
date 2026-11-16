@@ -675,7 +675,7 @@ document.querySelectorAll('.color-choice').forEach(button=>{
   document.querySelectorAll('.color-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
 });
-document.getElementById('playButton').addEventListener('click',()=>{
+document.getElementById('menuSoundTest').addEventListener('click',async()=>{\n soundEnabled=true;localStorage.setItem('territorySound','on');updateSoundButton();await playSound('start');\n});\ndocument.getElementById('playButton').addEventListener('click',()=>{
  unlockAudio();playSound('start');
  gameStarted=true;menu.style.display='none';
  document.querySelector('.hud').style.display='flex';
