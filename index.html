@@ -132,7 +132,7 @@ function updateSoundButton(){if(soundButton)soundButton.textContent=soundEnabled
 function unlockAudio(){
  if(!soundEnabled)return;
  try{if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;audioContext=new AudioCtx();}
- if(audioContext.state==='suspended')audioContext.resume();}catch{}
+ if(audioContext.state==='suspended')return audioContext.resume();return Promise.resolve();}catch{return Promise.resolve();}
 }
 function tone(freq,duration,shape='sine',volume=.07,slide=0,delay=0){
  if(!soundEnabled||!audioContext)return;
@@ -152,7 +152,7 @@ function playSound(kind){
  else if(kind==='start'){tone(392,.12,'sine',.05,70);tone(523,.16,'sine',.05,100,.1);tone(784,.2,'triangle',.045,120,.2);}
 }
 updateSoundButton();
-soundButton?.addEventListener('click',()=>{soundEnabled=!soundEnabled;localStorage.setItem('territorySound',soundEnabled?'on':'off');if(soundEnabled)unlockAudio();updateSoundButton();if(soundEnabled)playSound('click');});
+soundButton?.addEventListener('click',()=>{soundEnabled=!soundEnabled;localStorage.setItem('territorySound',soundEnabled?'on':'off');updateSoundButton();if(soundEnabled)unlockAudio().then(()=>playSound('click'));});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function valid(x,y){return x>=0&&y>=0&&x<C&&y<C&&Math.hypot((x+.5)*S-CX,(y+.5)*S-CY)<=R;}
@@ -207,7 +207,7 @@ function capture(id,path){
   }
  }
  for(let i=0;i<land.length;i++)if(land[i]!==OUT&&land[i]!==id&&!seen[i])land[i]=id;
- updateScore();terrainDirty=true;
+ updateScore();terrainDirty=true;playSound('capture');
 }
 function makePlayer(id,x,y,angle,isHuman=false){
  return{id,x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
@@ -285,6 +285,7 @@ function keepSingleTerritory(id,seed){
 }
 function kill(p,reason,killer=null){
  if(!p.alive)return;
+ playSound(killer?'eliminate':'hit');
  const defeatedTrail=p.trail.slice();
  p.alive=false;
  p.trail=[];p.outside=false;p.homeTarget=null;
@@ -654,18 +655,19 @@ const menu=document.getElementById('mainMenu');
 document.querySelectorAll('.skin-choice').forEach(button=>{
  if(button.dataset.skin===selectedSkin)button.classList.add('selected');
  button.addEventListener('click',()=>{
-  selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);
+  selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);unlockAudio().then(()=>playSound('click'));
   document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
 });
 document.querySelectorAll('.color-choice').forEach(button=>{
  if(button.dataset.color===COLORS[1])button.classList.add('selected');
  button.addEventListener('click',()=>{
-  COLORS[1]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[1]);
+  COLORS[1]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[1]);unlockAudio().then(()=>playSound('click'));
   document.querySelectorAll('.color-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
 });
 document.getElementById('playButton').addEventListener('click',()=>{
+ unlockAudio().then(()=>playSound('start'));
  gameStarted=true;menu.style.display='none';
  document.querySelector('.hud').style.display='flex';
  document.querySelector('.brand').style.display='flex';
