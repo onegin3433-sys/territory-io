@@ -129,12 +129,13 @@ bestEl.textContent=best+'%';
 let audioContext=null,soundEnabled=localStorage.getItem('territorySound')!=='off';
 const soundButton=document.getElementById('soundToggle');
 function updateSoundButton(){if(soundButton)soundButton.textContent=soundEnabled?'🔊 Звук':'🔇 Без звука';}
-async function unlockAudio(){
+function unlockAudio(){
  try{
-  if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return false;audioContext=new AudioCtx();}
-  if(audioContext.state!=='running')await audioContext.resume();
-  return audioContext.state==='running';
- }catch(error){console.warn('Audio unavailable',error);return false;}
+  if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return Promise.resolve(false);audioContext=new AudioCtx();}
+  // Call resume immediately inside the user's tap gesture (important in Android/Telegram WebView).
+  const resumed=audioContext.state==='running'?Promise.resolve():audioContext.resume();
+  return resumed.then(()=>audioContext.state==='running').catch(error=>{console.warn('Audio unavailable',error);return false;});
+ }catch(error){console.warn('Audio unavailable',error);return Promise.resolve(false);}
 }
 function tone(freq,duration,shape='sine',volume=.07,slide=0,delay=0){
  if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
@@ -158,6 +159,8 @@ async function playSound(kind){
  else if(kind==='start'){tone(392,.12,'sine',.05,70);tone(523,.16,'sine',.05,100,.1);tone(784,.2,'triangle',.045,120,.2);}
 }
 updateSoundButton();
+// Разблокируем Web Audio при первом реальном касании/нажатии пользователя.
+document.addEventListener('pointerdown',()=>{if(!audioContext||audioContext.state!=='running')unlockAudio();},{once:true,capture:true});
 soundButton?.addEventListener('click',async()=>{
  soundEnabled=!soundEnabled;localStorage.setItem('territorySound',soundEnabled?'on':'off');updateSoundButton();
  if(soundEnabled)await playSound('start');
@@ -676,7 +679,7 @@ document.querySelectorAll('.color-choice').forEach(button=>{
  });
 });
 document.getElementById('playButton').addEventListener('click',()=>{
- unlockAudio();playSound('start');
+ unlockAudio().then(ready=>{if(ready&&soundEnabled)playSound('start');});
  gameStarted=true;menu.style.display='none';
  document.querySelector('.hud').style.display='flex';
  document.querySelector('.brand').style.display='flex';
