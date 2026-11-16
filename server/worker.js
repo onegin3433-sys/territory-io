@@ -87,6 +87,21 @@ export class GameRoom extends DurableObject {
     if (!packet || typeof packet.type !== "string") return;
 
     const sender = socket.deserializeAttachment() || {};
+    // Backward-compatible position relay while older clients are being migrated.
+    if (packet.type === "state") {
+      if (!Number.isFinite(packet.x) || !Number.isFinite(packet.y) ||
+          !Number.isFinite(packet.angle)) return;
+      this.broadcast({
+        type: "player_state",
+        playerId: sender.playerId,
+        x: packet.x,
+        y: packet.y,
+        angle: packet.angle,
+        trail: Array.isArray(packet.trail) ? packet.trail.slice(-120) : []
+      }, socket);
+      return;
+    }
+
     if (packet.type === "input") {
       if (!Number.isFinite(packet.angle)) return;
       const host = this.hostSocket();
