@@ -65,7 +65,6 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <button class="color-choice" data-color="#ffc04d" style="background:#ffc04d" aria-label="Жёлтый"></button>
 <button class="color-choice" data-color="#a78bfa" style="background:#a78bfa" aria-label="Фиолетовый"></button>
 </div>
-<button id="menuSoundTest" style="width:100%;margin-top:8px;padding:11px;background:#1b3048">🔊 ПРОВЕРИТЬ ЗВУК</button>
 <button id="playButton">ИГРАТЬ</button>
 </div></div>
 <div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><div style="display:flex;gap:5px;pointer-events:auto"><button id="soundToggle" aria-label="Включить или выключить звук">🔊 Звук</button><button id="restart">Заново</button></div></div>
@@ -675,9 +674,6 @@ document.querySelectorAll('.color-choice').forEach(button=>{
   COLORS[1]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[1]);playSound('click');
   document.querySelectorAll('.color-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
-});
-document.getElementById('menuSoundTest').addEventListener('click',async()=>{
- soundEnabled=true;localStorage.setItem('territorySound','on');updateSoundButton();await playSound('start');
 });
 document.getElementById('playButton').addEventListener('click',()=>{
  unlockAudio();playSound('start');
