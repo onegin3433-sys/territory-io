@@ -89,11 +89,16 @@ export class GameRoom extends DurableObject {
     const sender = socket.deserializeAttachment() || {};
     if (packet.type === "input") {
       if (!Number.isFinite(packet.angle)) return;
-      this.broadcast({
-        type: "player_input",
-        playerId: sender.playerId,
-        angle: Math.max(-Math.PI, Math.min(Math.PI, packet.angle))
-      }, this.hostSocket());
+      const host = this.hostSocket();
+      if (host && host !== socket) {
+        try {
+          host.send(JSON.stringify({
+            type: "player_input",
+            playerId: sender.playerId,
+            angle: Math.max(-Math.PI, Math.min(Math.PI, packet.angle))
+          }));
+        } catch {}
+      }
       return;
     }
 
