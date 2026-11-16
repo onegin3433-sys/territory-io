@@ -27,10 +27,14 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 @media(max-width:370px){.brand{top:45px;padding:4px 7px;gap:5px}.brand-mark{width:20px;height:20px}.brand-name{font-size:10px}#minimap{top:72px}}
 #minimap{position:absolute;z-index:3;right:10px;top:58px;width:clamp(104px,27vw,150px);height:auto;aspect-ratio:1;border:2px solid #c5d5e9;border-radius:12px;background:#0b1422dd;box-shadow:0 3px 14px #0009;pointer-events:none}
 
-.menu{position:absolute;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at 50% 20%,#263b55 0,#0b1422 68%);overflow:auto}
-.menu-panel{width:min(100%,440px);max-height:100%;overflow:auto;padding:22px;border:1px solid #60748d;border-radius:22px;background:#101e31f2;box-shadow:0 18px 60px #0009;text-align:center}
-.menu h1{margin:0;color:#fff;font-size:27px;letter-spacing:.08em}.menu-sub{margin:5px 0 20px;color:#a9bdd3;font-size:12px}
-.menu-section{margin:16px 0 8px;text-align:left;font-weight:800;font-size:13px;color:#e8f1fb}
+.menu{position:absolute;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:radial-gradient(ellipse at 50% -10%,#315b78 0,#14263d 42%,#070e1b 100%);overflow:auto}
+.menu-panel{position:relative;width:min(100%,480px);max-height:100%;overflow:auto;padding:20px 18px 18px;border:1px solid #8bb4d455;border-radius:26px;background:linear-gradient(155deg,#142943f5,#0b1728f7 72%);box-shadow:0 22px 70px #000b,inset 0 1px #ffffff16;text-align:center}
+.menu-panel:before{content:"";position:absolute;top:0;left:12%;right:12%;height:2px;background:linear-gradient(90deg,transparent,#55e5bc,#59aaff,transparent)}
+.menu h1{margin:0;color:#fff;font-size:clamp(23px,6vw,30px);font-weight:1000;letter-spacing:.1em;text-shadow:0 3px 18px #55cfff55}.menu-sub{margin:6px 0 14px;color:#a9c2dc;font-size:10px;letter-spacing:.14em;font-weight:800}
+.menu-section{display:flex;align-items:center;gap:8px;margin:16px 0 9px;text-align:left;font-weight:950;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#dcecff}.menu-section:after{content:"";height:1px;flex:1;background:linear-gradient(90deg,#5c7898aa,transparent)}
+.menu-preview{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:10px 13px;border:1px solid #78a6c64a;border-radius:16px;background:linear-gradient(100deg,#203b56aa,#10243aaa);text-align:left}
+.menu-preview-icon{display:grid;place-items:center;width:54px;height:54px;flex:none;border-radius:15px;background:radial-gradient(circle,#ffffff24,#ffffff08);font-size:35px;filter:drop-shadow(0 3px 8px #0008)}
+.menu-preview-label{font-size:9px;color:#8faecb;font-weight:900;letter-spacing:.14em}.menu-preview-name{font-size:15px;color:#fff;font-weight:950;margin-top:3px}.menu-preview-hint{font-size:10px;color:#a9bdd3;margin-top:2px}
  .menu-secondary{width:100%;margin-top:9px;padding:11px;border:1px solid #536985;border-radius:12px;background:#1a2d44;color:#eaf3ff;font-weight:850}
  .ranking-overlay{position:absolute;z-index:30;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:#050b16df;backdrop-filter:blur(7px)}
  .ranking-overlay.show{display:flex}.ranking-card{width:min(100%,430px);max-height:88%;overflow:auto;padding:18px;border:1px solid #607b98;border-radius:20px;background:#101e31;color:#eef4ff}
@@ -41,12 +45,13 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
  .ranking-avatar-fallback{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#263b55;border:1px solid #6e849d;font-size:13px;font-weight:900;color:#dcecff}
  .ranking-row:first-child .ranking-place{color:#ffdc78}.ranking-player{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
  .ranking-meta{font-size:11px;color:#9fb5cc;margin-top:3px}.ranking-score{text-align:right;font-weight:900;color:#9fffd8}.ranking-close{width:100%;margin-top:14px;padding:12px}
-.skin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.skin-choice{padding:12px 5px;border:1px solid #526982;border-radius:14px;background:#192b41;color:#eef4ff;min-height:86px}
-.skin-choice .skin-icon{display:block;font-size:30px;margin-bottom:5px}.skin-choice.selected{border:2px solid #4ce0a5;background:#1c3b3a}
-.color-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:8px 0 14px}
-.color-choice{width:34px;height:34px;padding:0;border-radius:50%;border:3px solid #dce8f5}
-.color-choice.selected{outline:3px solid #fff;outline-offset:3px}
+.skin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.skin-choice{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:9px 4px;border:1px solid #58738f88;border-radius:15px;background:linear-gradient(150deg,#203a55,#14273d);color:#eef4ff;min-height:82px;font-size:11px;font-weight:850;transition:transform .15s,border-color .15s,background .15s}
+.skin-choice:active{transform:scale(.96)}.skin-choice .skin-icon{display:block;font-size:31px;line-height:1.1;filter:drop-shadow(0 3px 4px #0007)}.skin-choice.selected{border:2px solid #4ce0a5;background:linear-gradient(145deg,#205448,#173c42);box-shadow:0 0 0 2px #4ce0a522,0 5px 16px #21c99b22}
+.color-row{display:grid;grid-template-columns:repeat(8,1fr);justify-items:center;gap:12px 5px;padding:10px 4px 15px}
+.color-choice{position:relative;width:27px;height:27px;padding:0;border-radius:50%;border:2px solid #dce8f5aa;box-shadow:0 2px 7px #0006}
+.color-choice.selected{outline:2px solid #fff;outline-offset:3px;transform:scale(1.08)}
+@media(max-width:370px){.menu-panel{padding:16px 12px}.skin-grid{gap:6px}.skin-choice{min-height:74px;font-size:10px}.skin-choice .skin-icon{font-size:27px}.color-row{grid-template-columns:repeat(6,1fr)}}
 #playButton{width:100%;margin-top:12px;padding:14px;border:0;border-radius:14px;background:linear-gradient(135deg,#2ed28f,#159b77);color:#06251c;font-size:17px;font-weight:900}
 .game-loading{position:absolute;z-index:15;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1422;color:#eef4ff;text-align:center}.game-loading.show{display:flex}.loading-spinner{width:38px;height:38px;border:4px solid #38506a;border-top-color:#2ed28f;border-radius:50%;animation:loadingSpin .8s linear infinite}.loading-title{font-size:17px;font-weight:900;letter-spacing:.08em}.loading-subtitle{font-size:13px;color:#a9bbd0}@keyframes loadingSpin{to{transform:rotate(360deg)}}
 .hud,.brand,#minimap{display:none}
@@ -80,7 +85,8 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <div><div class="brand-name">TERRITORY WARS</div><div class="brand-sub">ВОЙНЫ ТЕРРИТОРИЙ</div></div>
 </div>
 <div class="menu" id="mainMenu"><div class="menu-panel">
-<h1>TERRITORY WARS</h1><div class="menu-sub">ВЫБЕРИ СВОЕГО ИГРОКА И ВЫХОДИ НА АРЕНУ</div>
+<div style="font-size:10px;font-weight:950;letter-spacing:.22em;color:#55dfbd;margin-bottom:7px">✦ MULTIPLAYER ARENA ✦</div><h1>TERRITORY WARS</h1><div class="menu-sub">СОБЕРИ СВОЙ ОБРАЗ И ЗАХВАТИ АРЕНУ</div>
+<div class="menu-preview"><div class="menu-preview-icon" id="selectedSkinPreview">🐱</div><div><div class="menu-preview-label">ТВОЙ ПЕРСОНАЖ</div><div class="menu-preview-name" id="selectedSkinName">Кот-разведчик</div><div class="menu-preview-hint">Выбери героя и цвет территории</div></div></div>
 <div class="menu-section">Выбери скин</div>
 <div class="skin-grid">
 <button class="skin-choice" data-skin="explorer"><span class="skin-icon">🐱</span>Кот-разведчик</button>
@@ -92,6 +98,14 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <button class="skin-choice" data-skin="shark"><span class="skin-icon">🦈</span>Акула</button>
 <button class="skin-choice" data-skin="panda"><span class="skin-icon">🐼</span>Панда</button>
 <button class="skin-choice" data-skin="king"><span class="skin-icon">👑</span>Король</button>
+<button class="skin-choice" data-skin="alien"><span class="skin-icon">👽</span>Пришелец</button>
+<button class="skin-choice" data-skin="tiger"><span class="skin-icon">🐯</span>Тигр</button>
+<button class="skin-choice" data-skin="penguin"><span class="skin-icon">🐧</span>Пингвин</button>
+<button class="skin-choice" data-skin="unicorn"><span class="skin-icon">🦄</span>Единорог</button>
+<button class="skin-choice" data-skin="wolf"><span class="skin-icon">🐺</span>Волк</button>
+<button class="skin-choice" data-skin="bee"><span class="skin-icon">🐝</span>Пчела</button>
+<button class="skin-choice" data-skin="ghost"><span class="skin-icon">👻</span>Привидение</button>
+<button class="skin-choice" data-skin="monkey"><span class="skin-icon">🐵</span>Обезьянка</button>
 </div>
 <div class="menu-section">Цвет территории</div>
 <div class="color-row">
@@ -107,6 +121,14 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <button class="color-choice" data-color="#b7e34b" style="background:#b7e34b" aria-label="Лаймовый"></button>
 <button class="color-choice" data-color="#8b5cf6" style="background:#8b5cf6" aria-label="Аметист"></button>
 <button class="color-choice" data-color="#8b5a3c" style="background:#8b5a3c" aria-label="Коричневый"></button>
+<button class="color-choice" data-color="#e879f9" style="background:#e879f9" aria-label="Орхидея"></button>
+<button class="color-choice" data-color="#14b8a6" style="background:#14b8a6" aria-label="Морская волна"></button>
+<button class="color-choice" data-color="#ef4444" style="background:#ef4444" aria-label="Красный"></button>
+<button class="color-choice" data-color="#64748b" style="background:#64748b" aria-label="Стальной"></button>
+<button class="color-choice" data-color="#f97316" style="background:#f97316" aria-label="Мандарин"></button>
+<button class="color-choice" data-color="#84cc16" style="background:#84cc16" aria-label="Фисташковый"></button>
+<button class="color-choice" data-color="#0ea5e9" style="background:#0ea5e9" aria-label="Небесный"></button>
+<button class="color-choice" data-color="#d946ef" style="background:#d946ef" aria-label="Фуксия"></button>
 </div>
 <button id="playButton">ИГРАТЬ</button><button id="openRanking" class="menu-secondary">🏆 ТОП ИГРОКОВ</button>
 </div></div>
@@ -158,7 +180,7 @@ window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
 const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 let selectedSkin=localStorage.getItem('territorySkin')||'explorer';
-if(!['explorer','robot','fox','ninja','astronaut','dragon','shark','panda','king'].includes(selectedSkin))selectedSkin='explorer';
+if(!['explorer','robot','fox','ninja','astronaut','dragon','shark','panda','king','alien','tiger','penguin','unicorn','wolf','bee','ghost','monkey'].includes(selectedSkin))selectedSkin='explorer';
 let gameStarted=false,gameFinished=false;
 const names={1:telegramDisplayName||'Ты',2:'Блиц',3:'Тень',4:'Искра'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
@@ -654,7 +676,7 @@ function draw(){
  for(const p of players){
   if(!p.alive)continue;
   if(p.isHuman&&selectedSkin!=='explorer'){
-   const skinEmoji={robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑'};
+   const skinEmoji={robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
    const bob=Math.sin(frame*.22)*3;
    ctx.shadowColor=COLORS[p.id];ctx.shadowBlur=24;
@@ -852,11 +874,15 @@ document.getElementById('resultMenu').addEventListener('click',()=>{
  rankingOverlay.addEventListener("click",e=>{if(e.target===rankingOverlay)rankingOverlay.classList.remove("show");});
  document.querySelectorAll(".ranking-tab").forEach(b=>b.addEventListener("click",()=>loadRanking(b.dataset.period)));
 
+const skinNames={explorer:'Кот-разведчик',robot:'Киборг',fox:'Лис',ninja:'Ниндзя',astronaut:'Космонавт',dragon:'Дракон',shark:'Акула',panda:'Панда',king:'Король',alien:'Пришелец',tiger:'Тигр',penguin:'Пингвин',unicorn:'Единорог',wolf:'Волк',bee:'Пчела',ghost:'Привидение',monkey:'Обезьянка'};
+const skinFaces={explorer:'🐱',robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
+function refreshSkinPreview(){document.getElementById('selectedSkinPreview').textContent=skinFaces[selectedSkin]||'🐱';document.getElementById('selectedSkinName').textContent=skinNames[selectedSkin]||'Кот-разведчик';}
+refreshSkinPreview();
 document.querySelectorAll('.skin-choice').forEach(button=>{
  button.classList.toggle('selected',button.dataset.skin===selectedSkin);
  button.addEventListener('click',()=>{
   selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);playSound('click');
-  document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));
+  document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));refreshSkinPreview();
  });
 });
 document.querySelectorAll('.color-choice').forEach(button=>{
