@@ -10,7 +10,7 @@ export default {
       return new Response("TERRITORY WARS shared-room server is running");
     }
     if (url.pathname !== "/ws" && url.pathname !== "/leaderboard") return new Response("Not found", { status: 404 });
-    if (request.headers.get("Upgrade") !== "websocket") {
+    if (url.pathname === "/ws" && request.headers.get("Upgrade") !== "websocket") {
       return new Response("WebSocket upgrade required", { status: 426 });
     }
     const roomId = env.GAME_ROOM.idFromName("territory-wars-main");
@@ -48,6 +48,7 @@ export class GameRoom extends DurableObject {
       return {
         playerId: data.playerId,
         name: data.name || "Игрок",
+        avatar: data.avatar || "",
         uid: data.uid || data.playerId,
         isHost: data.isHost === true,
         slot: data.slot
@@ -64,10 +65,10 @@ export class GameRoom extends DurableObject {
       const totals = new Map();
       for (const event of events) {
         if (event.at < cutoff) continue;
-        const row = totals.get(event.uid) || {uid:event.uid,name:event.name,games:0,points:0,best:0};
-        row.name=event.name||row.name; row.games++; if(event.won)row.points++; row.best=Math.max(row.best,event.score||0); totals.set(event.uid,row);
+        const row = totals.get(event.uid) || {uid:event.uid,name:event.name,avatar:event.avatar||"",games:0,points:0,best:0};
+        row.name=event.name||row.name; row.avatar=event.avatar||row.avatar; row.games++; if(event.won)row.points++; row.best=Math.max(row.best,event.score||0); totals.set(event.uid,row);
       }
-      return new Response(JSON.stringify({period,players:[...totals.values()].sort((a,b)=>b.points-a.points).slice(0,50)}),{headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Cache-Control":"no-store"}});
+      return new Response(JSON.stringify({period,players:[...totals.values()].sort((a,b)=>b.points-a.points).slice(0,100)}),{headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Cache-Control":"no-store"}});
     }
     if (request.method === "OPTIONS") return new Response(null,{headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS"}});
     const pair = new WebSocketPair();
@@ -85,8 +86,11 @@ export class GameRoom extends DurableObject {
     const requestedName = (url.searchParams.get("name") || "Игрок").trim();
     const name = Array.from(requestedName).slice(0, MAX_NAME_LENGTH).join("") || "Игрок";
     const uid = (url.searchParams.get("uid") || playerId).slice(0,64);
+    const rawAvatar = url.searchParams.get("avatar") || "";
+    let avatar = "";
+    try { const parsed = new URL(rawAvatar); if (parsed.protocol === "https:") avatar = parsed.href.slice(0,1000); } catch {}
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({playerId,name,uid,isHost:wasEmpty,slot});
+    server.serializeAttachment({playerId,name,uid,avatar,isHost:wasEmpty,slot});
 
     server.send(JSON.stringify({
       type: "welcome",
@@ -98,7 +102,7 @@ export class GameRoom extends DurableObject {
     }));
     this.broadcast({
       type: "player_joined",
-      player: { playerId, name, isHost: wasEmpty, slot },
+      player: { playerId, name, avatar, isHost: wasEmpty, slot },
       players: this.roster()
     }, server);
     return new Response(null, { status: 101, webSocket: client });
@@ -130,7 +134,7 @@ export class GameRoom extends DurableObject {
       if(typeof packet.eventId!=="string"||packet.eventId.length>120)return;
       const events=await this.ctx.storage.get("leaderboardEvents")||[];
       if(events.some(event=>event.eventId===packet.eventId))return;
-      events.push({eventId:packet.eventId,uid:sender.uid||sender.playerId,name:sender.name||"Игрок",won:packet.won===true,score:Math.max(0,Math.min(100,Math.round(Number(packet.score)||0))),at:Date.now()});
+      events.push({eventId:packet.eventId,uid:sender.uid||sender.playerId,name:sender.name||"Игрок",avatar:sender.avatar||"",won:packet.won===true,score:Math.max(0,Math.min(100,Math.round(Number(packet.score)||0))),at:Date.now()});
       await this.ctx.storage.put("leaderboardEvents",events); return;
     }
     if (packet.type === "input") {
