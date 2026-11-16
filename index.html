@@ -331,10 +331,12 @@ function applyWorld(world){
 }
 function ensureRosterPlayers(){
  if(!onlineIsHost||!land||!Array.isArray(players))return;
+ let addedHuman=false;
  for(const entry of roomRoster){
   const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4)continue;
   const existing=players.find(p=>p.id===slot);
   if(existing){
+   if(existing.isBot)addedHuman=true;
    existing.name=entry.name||existing.name;existing.isBot=false;
    existing.isHuman=slot===onlineSlot;existing.isRemote=slot!==onlineSlot;
    existing.speed=(existing.isHuman?130:95)*SCALE;
@@ -342,9 +344,10 @@ function ensureRosterPlayers(){
    continue;
   }
   const spawn=findFreeSpawn(slot),p=makePlayer(slot,spawn.x,spawn.y,spawn.angle,false);
-  p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;p.isHuman=false;
+  addedHuman=true;p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;p.isHuman=false;
   seedBase(slot,spawn.x,spawn.y,48*SCALE);players.push(p);terrainDirty=true;
  }
+ if(addedHuman){gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');}
  updateScore();
 }
 function connectOnline(){
