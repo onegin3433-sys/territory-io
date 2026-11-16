@@ -381,6 +381,7 @@ function connectOnline(){
    if(packet.type==='welcome'){
     onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
+    const savedColor=localStorage.getItem('territoryPlayerColor');if(typeof savedColor==='string'&&/^#[0-9a-f]{6}$/i.test(savedColor)){if(onlineIsHost)COLORS[onlineSlot]=savedColor;else sendPacket({type:'color_update',color:savedColor});}
     if(packet.snapshot){if(applyWorld(packet.snapshot))requestAnimationFrame(hideLoading);}
     else if(onlineIsHost&&pendingStart){if(!land)createArena();else{ensureRosterPlayers();sendWorldSnapshot(true);}requestAnimationFrame(hideLoading);}
     else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
