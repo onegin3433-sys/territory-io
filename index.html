@@ -128,32 +128,73 @@ const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,initialTerrain=true,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
-const remotePlayers=new Map();let onlineSocket=null,onlinePlayerId=null,onlineCount=1,lastNetSend=0,onlineRetryTimer=null;
+let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,onlineRetryTimer=null,roomRoster=[];
 const onlineStatusEl=document.getElementById('onlineStatus');
+const spawnPoints={1:[455*SCALE,480*SCALE,0],2:[690*SCALE,285*SCALE,2.5],3:[690*SCALE,680*SCALE,-2],4:[270*SCALE,700*SCALE,-.2]};
 function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text;}
+function sendPacket(packet){if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){try{onlineSocket.send(JSON.stringify(packet));}catch{}}}
+function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=String.fromCharCode(...land.subarray(i,Math.min(i+8192,land.length)));return btoa(binary);}
+function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
+function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,trail:p.trail.slice(-900)}))};}
+function applyWorld(world){
+ if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return;
+ const sharedLand=decodeLand(world.land);if(!sharedLand)return;
+ land=sharedLand;initialTerrain=!!world.initialTerrain;
+ players=world.players.filter(p=>p&&Number.isInteger(p.id)&&p.id>=1&&p.id<=4).map(data=>{
+  const local=data.id===onlineSlot,p=makePlayer(data.id,data.x,data.y,data.angle,local);
+  p.name=String(data.name||('Игрок '+data.id)).slice(0,18);p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
+  p.alive=!!data.alive;p.outside=!!data.outside;p.trail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-900):[];
+  p.isRemote=!local;return p;
+ });
+ player=players.find(p=>p.id===onlineSlot)||null;
+ if(!player)return;
+ gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
+ cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
+}
+function ensureRosterPlayers(){
+ if(!onlineIsHost||!land)return;
+ for(const entry of roomRoster){
+  const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4||players.some(p=>p.id===slot))continue;
+  const spawn=spawnPoints[slot],p=makePlayer(slot,spawn[0],spawn[1],spawn[2],false);
+  p.name=entry.name||('Игрок '+slot);p.isRemote=true;players.push(p);seedBase(slot,...spawn.slice(0,2),slot===1?68*SCALE:57*SCALE);terrainDirty=true;
+ }
+ updateScore();
+}
 function connectOnline(){
  if(onlineRetryTimer){clearTimeout(onlineRetryTimer);onlineRetryTimer=null;}
  try{
-  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws');
+  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws?name='+encodeURIComponent('Игрок'));
   onlineSocket=socket;setOnlineStatus('подключение…');
-  socket.addEventListener('open',()=>setOnlineStatus('в сети'));
+  socket.addEventListener('open',()=>setOnlineStatus('подключено'));
   socket.addEventListener('message',event=>{
    let packet;try{packet=JSON.parse(event.data);}catch{return;}
-   if(packet.type==='welcome'){onlinePlayerId=packet.playerId;onlineCount=packet.players||1;setOnlineStatus(String(onlineCount));}
-   else if(packet.type==='players'){onlineCount=packet.count||1;setOnlineStatus(String(onlineCount));}
-   else if(packet.type==='player_state'&&packet.playerId!==onlinePlayerId){
-    remotePlayers.set(String(packet.playerId),{x:packet.x,y:packet.y,angle:packet.angle,trail:Array.isArray(packet.trail)?packet.trail:[],seen:performance.now()});
-   }
+   if(packet.type==='welcome'){
+    onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
+    roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
+    if(packet.snapshot?.world)applyWorld(packet.snapshot.world);
+    else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
+   }else if(packet.type==='player_joined'){
+    roomRoster=Array.isArray(packet.players)?packet.players:roomRoster;onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
+    if(onlineIsHost){ensureRosterPlayers();sendWorldSnapshot(true);}
+   }else if(packet.type==='player_left'){
+    roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
+    if(onlineIsHost&&players){const left=players.filter(p=>!roomRoster.some(r=>r.slot===p.id));for(const p of left){if(p.id!==onlineSlot){p.alive=false;for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;}}players=players.filter(p=>p.id===onlineSlot||roomRoster.some(r=>r.slot===p.id));terrainDirty=true;updateScore();sendWorldSnapshot(true);}
+    if(packet.hostChanged){onlineIsHost=String(packet.hostId||'')===onlinePlayerId;if(onlineIsHost)setOnlineStatus('ведущий');}
+   }else if(packet.type==='player_input'&&onlineIsHost&&players){
+    const p=players.find(q=>q.id===roomRoster.find(r=>r.playerId===packet.playerId)?.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
+   }else if(packet.type==='world_snapshot'&&!onlineIsHost){applyWorld(packet.world);}
   });
-  socket.addEventListener('close',()=>{if(onlineSocket===socket){onlineSocket=null;onlinePlayerId=null;setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,3000);}});
+  socket.addEventListener('close',()=>{if(onlineSocket===socket){onlineSocket=null;onlinePlayerId=null;onlineIsHost=false;setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,3000);}});
   socket.addEventListener('error',()=>setOnlineStatus('ошибка связи'));
  }catch{setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,5000);}
 }
-function sendOnlineState(now){
- if(!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN||!player||now-lastNetSend<100)return;
- lastNetSend=now;
- try{onlineSocket.send(JSON.stringify({type:'state',x:player.x,y:player.y,angle:player.angle,trail:player.trail.slice(-120)}));}catch{}
+function sendWorldSnapshot(force=false){
+ if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
+ const now=performance.now();if(!force&&now-lastSnapshotAt<180)return;lastSnapshotAt=now;
+ sendPacket({type:'snapshot',world:worldSnapshot()});
 }
+function sendOnlineInput(angle){if(!onlineIsHost)sendPacket({type:'input',angle});}
+
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msg=document.getElementById('message');
 bestEl.textContent=best+'%';
 let soundEnabled=localStorage.getItem('territorySound')!=='off';
