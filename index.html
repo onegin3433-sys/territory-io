@@ -110,6 +110,33 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 .lobby-customization .color-row{gap:10px 5px}
 @media(max-height:760px){.lobby-panel{gap:5px;padding-top:8px}.lobby-hero{min-height:220px}.lobby-stage{width:min(52vw,220px);height:min(52vw,220px)}.lobby-actions{padding-top:2px}.lobby-play{min-height:72px}.lobby-customization{max-height:38vh}}
 @media(min-width:520px){.lobby-panel{padding-left:30px;padding-right:30px}.lobby-stage{width:300px;height:300px}}
+
+/* Bright, polished lobby pass based on the supplied reference */
+.lobby-menu{background:radial-gradient(ellipse at 50% 45%,#42f1e4 0%,#19c8ed 35%,#087fd2 72%,#0754ad 100%)}
+.lobby-menu:before{width:78vw;height:78vw;left:-28vw;top:24%;background:#8effe477;filter:blur(18px)}
+.lobby-menu:after{width:82vw;height:82vw;right:-35vw;bottom:5%;background:#8b7bff66;filter:blur(22px)}
+.lobby-panel{background:linear-gradient(180deg,#079de9 0%,#19c8e9 43%,#36d8dc 72%,#168bd4 100%);gap:8px}
+.lobby-top{padding:8px 3px 10px}
+.lobby-logo{width:54px;height:54px;border:4px solid #fff;box-shadow:0 4px 0 #07549b,0 0 0 3px #ffffff55;background:linear-gradient(145deg,#fff,#a6eaff);font-size:18px}
+.lobby-brand strong{text-shadow:0 2px 0 #07549b,0 3px 8px #004a8b}
+.lobby-sound{width:48px;height:48px;border:3px solid #fff;background:linear-gradient(145deg,#197ed2,#0752a4);box-shadow:0 4px 0 #06427e, inset 0 1px #ffffff66}
+.lobby-hero{min-height:0;padding:0 0 8px}
+.lobby-kicker{padding:7px 15px;border:2px solid #ffffffa8;border-radius:22px;background:#0875c6aa;box-shadow:0 4px 0 #07549b;color:#fff}
+.lobby-stage{width:min(82vw,350px);height:min(82vw,350px);max-height:350px;margin:3px auto 2px}
+.lobby-stage:before{content:"";position:absolute;inset:3%;border-radius:50%;background:repeating-conic-gradient(from 8deg,#ffffff22 0deg 7deg,transparent 7deg 15deg);mask:radial-gradient(circle,transparent 0 48%,#000 49% 70%,transparent 71%)}
+.lobby-stage-ring{inset:9%;border:13px solid #d8faff;background:radial-gradient(circle at 50% 35%,#145ca9,#082d72 75%);box-shadow:0 12px 0 #06417f,0 0 0 5px #ffffff88,inset 0 0 30px #59eaff,0 12px 25px #004b8b77}
+.lobby-character{width:58%;height:58%;border-radius:30%;font-size:clamp(84px,24vw,124px);background:radial-gradient(circle at 30% 22%,#fff,#e7faff 35%,#79caff 100%);border:7px solid #fff;box-shadow:0 10px 0 #1769b1,0 18px 30px #003d7a88, inset 0 2px 10px #fff}
+.lobby-podium{bottom:4%;width:88%;height:25%;border-width:8px;background:linear-gradient(180deg,#fff,#b9eaff 50%,#4e9fdb);box-shadow:0 13px 0 #07539a,0 17px 22px #003c7b77}
+.lobby-hero .menu-preview-name{font-size:clamp(21px,6vw,26px);text-shadow:0 3px 0 #07569a,0 5px 12px #004c8a}
+.lobby-caption{padding:5px 12px;border-radius:18px;background:#0875b866}
+.lobby-actions{gap:12px;padding:10px 0 5px}
+.lobby-play{min-height:104px;border-width:7px;border-radius:34px;font-size:30px;box-shadow:0 10px 0 #b86b00,0 15px 22px #004a8b77,inset 0 2px 0 #fff}
+.lobby-play span{font-size:40px}
+.lobby-tile{min-height:76px;border-width:3px;border-radius:20px;font-size:clamp(10px,2.8vw,12px);box-shadow:0 6px 0 #06427d,inset 0 2px 0 #ffffff55}
+.lobby-ranking{background:linear-gradient(145deg,#a56aff,#6330c5);box-shadow:0 6px 0 #382078,inset 0 2px 0 #ffffff55}
+.lobby-customization{background:linear-gradient(150deg,#075da9f5,#063d82f5);border:3px solid #d7f5ff;box-shadow:0 10px 24px #003f7c88}
+@media(max-height:760px){.lobby-stage{width:min(56vw,235px);height:min(56vw,235px)}.lobby-play{min-height:76px}.lobby-tile{min-height:58px}.lobby-hero{padding-bottom:2px}}
+
 </style>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
