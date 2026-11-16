@@ -171,7 +171,7 @@ function connectOnline(){
    if(packet.type==='welcome'){
     onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
-    if(packet.snapshot?.world)applyWorld(packet.snapshot.world);
+    if(packet.snapshot)applyWorld(packet.snapshot);
     else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
    }else if(packet.type==='player_joined'){
     roomRoster=Array.isArray(packet.players)?packet.players:roomRoster;onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
@@ -247,7 +247,7 @@ function updateLeaderboard(validCount){
  if(host)host.innerHTML=rows.map((p,i)=>'<div class="leader-row"><span class="leader-rank">'+(i+1)+'.</span><span class="leader-name">'+p.name+'</span><span class="leader-pct">'+p.pct+'%</span></div>').join('');
 }
 function updateScore(){
- const validCount=land.reduce((n,v)=>n+(v!==OUT),0),mine=countOwned(1),pct=Math.round(mine/validCount*100);
+ const validCount=land.reduce((n,v)=>n+(v!==OUT),0),mine=countOwned(onlineSlot),pct=Math.round(mine/validCount*100);
  scoreEl.textContent=pct+'%';if(pct>best){best=pct;bestEl.textContent=best+'%';localStorage.setItem('territoryBest',best);}
  updateLeaderboard(validCount);
 }
@@ -290,20 +290,29 @@ function makePlayer(id,x,y,angle,isHuman=false){
 function reset(){
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  const leaderboard=document.getElementById('leaderboard');if(leaderboard)leaderboard.style.display='block';
+ if(!onlineIsHost){sendPacket({type:'request_snapshot'});msg.textContent='Ожидаем ведущего комнаты…';return;}
  land=new Uint8Array(C*C);land.fill(OUT);
  for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
  seedBase(1,390*SCALE,480*SCALE,68*SCALE);
  seedBase(2,690*SCALE,285*SCALE,57*SCALE);seedBase(3,690*SCALE,680*SCALE,57*SCALE);seedBase(4,270*SCALE,700*SCALE,57*SCALE);
- player=makePlayer(1,455*SCALE,480*SCALE,0,true);
- players=[player,makePlayer(2,690*SCALE,285*SCALE,2.5),makePlayer(3,690*SCALE,680*SCALE,-2),makePlayer(4,270*SCALE,700*SCALE,-.2)];
- frame=0;initialTerrain=true;cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();msg.textContent='Поле увеличено в 3 раза. Камера плавно следует за тобой.';draw();
+ const hostEntry=roomRoster.find(r=>r.playerId===onlinePlayerId)||{slot:1,name:'Игрок'};
+ onlineSlot=hostEntry.slot||1;players=[];
+ for(const entry of roomRoster){
+  const slot=entry.slot,spawn=spawnPoints[slot];if(!spawn)continue;
+  const p=makePlayer(slot,spawn[0],spawn[1],spawn[2],slot===onlineSlot);
+  p.name=entry.name||('Игрок '+slot);p.isRemote=slot!==onlineSlot;players.push(p);
+ }
+ player=players.find(p=>p.id===onlineSlot)||players[0];
+ frame=0;initialTerrain=true;cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();msg.textContent='Общая арена запущена!';sendWorldSnapshot(true);draw();
 }
 function angleDiff(a,b){return Math.atan2(Math.sin(b-a),Math.cos(b-a));}
 function steer(p,dt){
- if(p.isHuman){
+ if(p.isRemote){
+  // Network input is controlled by the room host.
+ }else if(p.isHuman){
   if(!touchActive){
    let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;
-   if(dx||dy)p.targetAngle=Math.atan2(dy,dx);
+   if(dx||dy){p.targetAngle=Math.atan2(dy,dx);sendOnlineInput(p.targetAngle);}
   }
  }else{
   // Think in short intervals instead of searching the whole nearby map every frame.
@@ -322,7 +331,7 @@ function steer(p,dt){
    p.targetAngle+=clamp(angleDiff(p.targetAngle,d),-dt*1.2,dt*1.2);
   }
  }
- const diff=angleDiff(p.angle,p.targetAngle),turnRate=p.isHuman?4.2:1.9;
+ const diff=angleDiff(p.angle,p.targetAngle),turnRate=(p.isHuman||p.isRemote)?4.2:1.9;
  p.angle+=clamp(diff,-turnRate*dt,turnRate*dt);
 }
 function sampleSegment(a,b,spacing=3){
@@ -714,8 +723,7 @@ let last=0,performanceNowDelta=16.67;
 function loop(now){
  const dt=Math.min((now-last)/1000||0,0.035);
  performanceNowDelta=now-last||16.67;last=now;frame+=dt*60;
- if(gameStarted){for(const p of players)moveOne(p,dt);sendOnlineState(now);}
- for(const [id,p] of remotePlayers){if(now-p.seen>10000)remotePlayers.delete(id);}
+ if(gameStarted&&onlineIsHost){for(const p of players)moveOne(p,dt);sendWorldSnapshot();}
  if(gameStarted)draw();requestAnimationFrame(loop);
 }
 function steerByFingerMovement(e){
@@ -724,7 +732,7 @@ function steerByFingerMovement(e){
  if(touchLast){
   const dx=x-touchLast.x,dy=y-touchLast.y;
   // Direction comes from the finger's movement, not its position on the arena.
-  if(Math.hypot(dx,dy)>2.5)player.targetAngle=Math.atan2(dy,dx);
+  if(Math.hypot(dx,dy)>2.5){player.targetAngle=Math.atan2(dy,dx);sendOnlineInput(player.targetAngle);}
  }
  touchLast={x,y};
 }
