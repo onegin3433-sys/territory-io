@@ -64,10 +64,10 @@ export class GameRoom extends DurableObject {
       const totals = new Map();
       for (const event of events) {
         if (event.at < cutoff) continue;
-        const row = totals.get(event.uid) || {uid:event.uid,name:event.name,games:0,wins:0,best:0};
-        row.name=event.name||row.name; row.games++; if(event.won)row.wins++; row.best=Math.max(row.best,event.score||0); totals.set(event.uid,row);
+        const row = totals.get(event.uid) || {uid:event.uid,name:event.name,games:0,points:0,best:0};
+        row.name=event.name||row.name; row.games++; if(event.won)row.points++; row.best=Math.max(row.best,event.score||0); totals.set(event.uid,row);
       }
-      return new Response(JSON.stringify({period,players:[...totals.values()].sort((a,b)=>b.wins-a.wins||b.best-a.best||b.games-a.games).slice(0,50)}),{headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Cache-Control":"no-store"}});
+      return new Response(JSON.stringify({period,players:[...totals.values()].sort((a,b)=>b.points-a.points).slice(0,50)}),{headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Cache-Control":"no-store"}});
     }
     if (request.method === "OPTIONS") return new Response(null,{headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS"}});
     const pair = new WebSocketPair();
