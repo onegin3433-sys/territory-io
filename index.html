@@ -90,7 +90,6 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <div class="menu-section">Выбери скин</div>
 <div class="skin-grid">
 <button class="skin-choice" data-skin="explorer"><span class="skin-icon">🐱</span>Кот-разведчик</button>
-<button class="skin-choice" data-skin="robot"><span class="skin-icon">🤖</span>Киборг</button>
 <button class="skin-choice" data-skin="fox"><span class="skin-icon">🦊</span>Лис</button>
 <button class="skin-choice" data-skin="ninja"><span class="skin-icon">🥷</span>Ниндзя</button>
 <button class="skin-choice" data-skin="astronaut"><span class="skin-icon">👨‍🚀</span>Космонавт</button>
@@ -188,7 +187,7 @@ window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
 const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 let selectedSkin=localStorage.getItem('territorySkin')||'explorer';
-if(!['explorer','robot','fox','ninja','astronaut','dragon','shark','panda','king','alien','tiger','penguin','unicorn','wolf','bee','ghost','monkey'].includes(selectedSkin))selectedSkin='explorer';
+if(!['explorer','fox','ninja','astronaut','dragon','shark','panda','king','alien','tiger','penguin','unicorn','wolf','bee','ghost','monkey'].includes(selectedSkin))selectedSkin='explorer';
 let gameStarted=false,gameFinished=false;
 const names={1:telegramDisplayName||'Ты',2:'Блиц',3:'Тень',4:'Искра'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
@@ -707,7 +706,14 @@ function draw(){
  const crownLeaderId=territoryLeader&&validTerritoryCells>0?territoryLeader.id:null;
  for(const p of players){
   if(!p.alive)continue;
-  if(p.isHuman&&selectedSkin!=='explorer'){
+  if(p.isBot){
+   ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+   ctx.shadowColor=COLORS[p.id];ctx.shadowBlur=20;
+   ctx.beginPath();ctx.arc(0,0,43,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();
+   ctx.shadowBlur=0;ctx.lineWidth=5;ctx.strokeStyle='#ffffff';ctx.stroke();
+   ctx.font='76px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🤖',0,Math.sin(frame*.22)*3);
+   ctx.restore();
+  }else if(p.isHuman&&selectedSkin!=='explorer'){
    const skinEmoji={robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
    const bob=Math.sin(frame*.22)*3;
@@ -917,8 +923,8 @@ document.getElementById('resultMenu').addEventListener('click',()=>{
  rankingOverlay.addEventListener("click",e=>{if(e.target===rankingOverlay)rankingOverlay.classList.remove("show");});
  document.querySelectorAll(".ranking-tab").forEach(b=>b.addEventListener("click",()=>loadRanking(b.dataset.period)));
 
-const skinNames={explorer:'Кот-разведчик',robot:'Киборг',fox:'Лис',ninja:'Ниндзя',astronaut:'Космонавт',dragon:'Дракон',shark:'Акула',panda:'Панда',king:'Король',alien:'Пришелец',tiger:'Тигр',penguin:'Пингвин',unicorn:'Единорог',wolf:'Волк',bee:'Пчела',ghost:'Привидение',monkey:'Обезьянка'};
-const skinFaces={explorer:'🐱',robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
+const skinNames={explorer:'Кот-разведчик',fox:'Лис',ninja:'Ниндзя',astronaut:'Космонавт',dragon:'Дракон',shark:'Акула',panda:'Панда',king:'Король',alien:'Пришелец',tiger:'Тигр',penguin:'Пингвин',unicorn:'Единорог',wolf:'Волк',bee:'Пчела',ghost:'Привидение',monkey:'Обезьянка'};
+const skinFaces={explorer:'🐱',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
 function refreshSkinPreview(){document.getElementById('selectedSkinPreview').textContent=skinFaces[selectedSkin]||'🐱';document.getElementById('selectedSkinName').textContent=skinNames[selectedSkin]||'Кот-разведчик';}
 refreshSkinPreview();
 document.querySelectorAll('.skin-choice').forEach(button=>{
