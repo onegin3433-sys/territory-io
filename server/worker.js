@@ -104,7 +104,7 @@ export class GameRoom extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  webSocketMessage(socket, message) {
+  async webSocketMessage(socket, message) {
     if (typeof message !== "string" || message.length > MAX_PACKET_BYTES) return;
     let packet;
     try { packet = JSON.parse(message); } catch { return; }
