@@ -322,18 +322,18 @@ function applyWorld(world){
   p.isRemote=!local;return p;
  });
  player=players.find(p=>p.id===onlineSlot)||null;
- if(!player)return;
+ if(!player){sendPacket({type:'request_snapshot'});return;}
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
  if(!player.alive)showGameResult(false);else if(players.length>1&&!players.some(p=>p.id!==onlineSlot&&p.alive))showGameResult(true);
 }
 function ensureRosterPlayers(){
- if(!onlineIsHost||!land)return;
+ if(!onlineIsHost||!land||!Array.isArray(players))return;
  for(const entry of roomRoster){
   const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4)continue;
   const existing=players.find(p=>p.id===slot);
-  if(existing&&!existing.isBot)continue;
+  if(existing&&!existing.isBot){existing.name=entry.name||existing.name;existing.isRemote=slot!==onlineSlot;existing.isBot=false;continue;}
   if(existing){existing.alive=false;players=players.filter(p=>p!==existing);}
   const spawn=spawnPoints[slot],p=makePlayer(slot,spawn[0],spawn[1],spawn[2],false);
   p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;players.push(p);terrainDirty=true;
@@ -366,7 +366,7 @@ function connectOnline(){
    }else if((packet.type==='start_request'||packet.type==='restart_request')&&onlineIsHost){
     if(packet.type==='restart_request'||!gameStarted||gameFinished||!land){reset();}else{sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
-    const p=players.find(q=>q.id===roomRoster.find(r=>r.playerId===packet.playerId)?.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
+    const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){applyWorld(packet.world);requestAnimationFrame(hideLoading);}
   });
   socket.addEventListener('close',()=>{if(onlineSocket===socket){onlineSocket=null;onlinePlayerId=null;onlineIsHost=false;setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,3000);}});
@@ -446,7 +446,7 @@ function seedBase(id,x,y,r){
 }
 function countOwned(id){let n=0;for(let i=0;i<land.length;i++)if(land[i]===id)n++;return n;}
 function updateLeaderboard(validCount){
- const rows=players.filter(p=>p.alive).map(p=>({id:p.id,name:p.name||names[p.id]||'Игрок',pct:Math.round(countOwned(p.id)/validCount*100)}))
+ const rows=players.filter(p=>p.alive).map(p=>{const rosterEntry=roomRoster.find(r=>r.slot===p.id);return{id:p.id,name:(rosterEntry&&rosterEntry.name)||p.name||names[p.id]||'Игрок',pct:Math.round(countOwned(p.id)/validCount*100)}})
   .sort((a,b)=>b.pct-a.pct||a.id-b.id).slice(0,3);
  const host=document.getElementById('leaderboardRows');
  if(host)host.innerHTML=rows.map((p,i)=>'<div class="leader-row"><span class="leader-rank">'+(i+1)+'.</span><span class="leader-name">'+p.name+'</span><span class="leader-pct">'+p.pct+'%</span></div>').join('');
