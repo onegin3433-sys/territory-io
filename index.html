@@ -18,6 +18,12 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 .brand-name{font-size:11px;font-weight:900;letter-spacing:.105em;line-height:1;color:#f4f8ff}
 .brand-sub{font-size:8px;font-weight:700;letter-spacing:.12em;color:#9fb5cc;margin-top:3px}
 #minimap{top:76px}
+.leaderboard{position:absolute;z-index:4;top:76px;left:8px;width:clamp(126px,34vw,168px);padding:9px 10px;border:1px solid #536985;border-radius:12px;background:linear-gradient(145deg,#142238ed,#0b1424eF);box-shadow:0 4px 16px #0008;backdrop-filter:blur(6px);pointer-events:none;color:#eaf2ff}
+.leaderboard-head{font-size:10px;font-weight:950;letter-spacing:.12em;color:#91a9c5;margin-bottom:7px}
+.leader-row{display:grid;grid-template-columns:17px minmax(0,1fr) auto;align-items:center;gap:5px;padding:4px 0;font-size:11px;font-weight:800}
+.leader-row+.leader-row{border-top:1px solid #ffffff12}
+.leader-rank{color:#9fb5cc}.leader-row:nth-child(2) .leader-rank{color:#ffd76a}.leader-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leader-pct{font-variant-numeric:tabular-nums;color:#7df0c0}
+@media(max-width:370px){.leaderboard{top:72px;width:124px;padding:7px 8px}.leader-row{font-size:10px}}
 @media(max-width:370px){.brand{top:45px;padding:4px 7px;gap:5px}.brand-mark{width:20px;height:20px}.brand-name{font-size:10px}#minimap{top:72px}}
 #minimap{position:absolute;z-index:3;right:10px;top:58px;width:clamp(104px,27vw,150px);height:auto;aspect-ratio:1;border:2px solid #c5d5e9;border-radius:12px;background:#0b1422dd;box-shadow:0 3px 14px #0009;pointer-events:none}
 
@@ -83,6 +89,10 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
 <canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
 <div id="message">Проводи пальцем в сторону движения. Полная карта — в углу.</div>
+<section class="leaderboard" id="leaderboard" aria-label="Топ игроков">
+ <div class="leaderboard-head">🏆 ТОП-3</div>
+ <div id="leaderboardRows"></div>
+</section>
 <div class="result-overlay" id="resultOverlay" aria-live="polite">
  <div class="result-card">
   <div class="result-emblem" id="resultEmblem">🏆</div>
@@ -112,7 +122,7 @@ window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
 const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
 let selectedSkin=localStorage.getItem('territorySkin')||'explorer',gameStarted=false,gameFinished=false;
-const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
+const names={1:'Ты',2:'Блиц',3:'Тень',4:'Искра'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
@@ -189,9 +199,16 @@ function seedBase(id,x,y,r){
  }
 }
 function countOwned(id){let n=0;for(let i=0;i<land.length;i++)if(land[i]===id)n++;return n;}
+function updateLeaderboard(validCount){
+ const rows=players.filter(p=>p.alive).map(p=>({id:p.id,name:p.name||names[p.id]||'Игрок',pct:Math.round(countOwned(p.id)/validCount*100)}))
+  .sort((a,b)=>b.pct-a.pct||a.id-b.id).slice(0,3);
+ const host=document.getElementById('leaderboardRows');
+ if(host)host.innerHTML=rows.map((p,i)=>'<div class="leader-row"><span class="leader-rank">'+(i+1)+'.</span><span class="leader-name">'+p.name+'</span><span class="leader-pct">'+p.pct+'%</span></div>').join('');
+}
 function updateScore(){
  const validCount=land.reduce((n,v)=>n+(v!==OUT),0),mine=countOwned(1),pct=Math.round(mine/validCount*100);
  scoreEl.textContent=pct+'%';if(pct>best){best=pct;bestEl.textContent=best+'%';localStorage.setItem('territoryBest',best);}
+ updateLeaderboard(validCount);
 }
 function nearestLand(id,x,y){
  let bestPoint=null,bestD=Infinity;
@@ -227,7 +244,7 @@ function capture(id,path){
  updateScore();terrainDirty=true;playSound('capture');checkForWin();
 }
 function makePlayer(id,x,y,angle,isHuman=false){
- return{id,x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
+ return{id,name:names[id]||('Игрок '+id),x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function reset(){
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
