@@ -148,6 +148,7 @@ function applyWorld(world){
  });
  player=players.find(p=>p.id===onlineSlot)||null;
  if(!player)return;
+ COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
 }
@@ -718,6 +719,7 @@ function loop(now){
  const dt=Math.min((now-last)/1000||0,0.035);
  performanceNowDelta=now-last||16.67;last=now;frame+=dt*60;
  if(gameStarted&&onlineIsHost){for(const p of players)moveOne(p,dt);sendWorldSnapshot();}
+ if(gameStarted&&!onlineIsHost&&player){let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;if(dx||dy){player.targetAngle=Math.atan2(dy,dx);if(now-lastNetSend>80){lastNetSend=now;sendOnlineInput(player.targetAngle);}}}
  if(gameStarted)draw();requestAnimationFrame(loop);
 }
 function steerByFingerMovement(e){
