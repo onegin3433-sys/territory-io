@@ -9,7 +9,7 @@ export default {
     if (url.pathname === "/") {
       return new Response("TERRITORY WARS shared-room server is running");
     }
-    if (url.pathname !== "/ws") return new Response("Not found", { status: 404 });
+    if (url.pathname !== "/ws" && url.pathname !== "/leaderboard") return new Response("Not found", { status: 404 });
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("WebSocket upgrade required", { status: 426 });
     }
@@ -48,6 +48,7 @@ export class GameRoom extends DurableObject {
       return {
         playerId: data.playerId,
         name: data.name || "Игрок",
+        uid: data.uid || data.playerId,
         isHost: data.isHost === true,
         slot: data.slot
       };
@@ -55,6 +56,20 @@ export class GameRoom extends DurableObject {
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/leaderboard") {
+      const period = ["all","month","week"].includes(url.searchParams.get("period")) ? url.searchParams.get("period") : "all";
+      const events = await this.ctx.storage.get("leaderboardEvents") || [];
+      const now = Date.now(), cutoff = period==="week" ? now-7*86400000 : period==="month" ? now-30*86400000 : 0;
+      const totals = new Map();
+      for (const event of events) {
+        if (event.at < cutoff) continue;
+        const row = totals.get(event.uid) || {uid:event.uid,name:event.name,games:0,wins:0,best:0};
+        row.name=event.name||row.name; row.games++; if(event.won)row.wins++; row.best=Math.max(row.best,event.score||0); totals.set(event.uid,row);
+      }
+      return new Response(JSON.stringify({period,players:[...totals.values()].sort((a,b)=>b.wins-a.wins||b.best-a.best||b.games-a.games).slice(0,50)}),{headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Cache-Control":"no-store"}});
+    }
+    if (request.method === "OPTIONS") return new Response(null,{headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS"}});
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
@@ -70,8 +85,9 @@ export class GameRoom extends DurableObject {
     const url = new URL(request.url);
     const requestedName = (url.searchParams.get("name") || "Игрок").trim();
     const name = Array.from(requestedName).slice(0, MAX_NAME_LENGTH).join("") || "Игрок";
+    const uid = (url.searchParams.get("uid") || playerId).slice(0,64);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ playerId, name, isHost: wasEmpty, slot });
+    server.serializeAttachment({playerId,name,uid,isHost:wasEmpty,slot});
 
     server.send(JSON.stringify({
       type: "welcome",
@@ -111,6 +127,13 @@ export class GameRoom extends DurableObject {
       return;
     }
 
+    if (packet.type === "match_result") {
+      if(typeof packet.eventId!=="string"||packet.eventId.length>120)return;
+      const events=await this.ctx.storage.get("leaderboardEvents")||[];
+      if(events.some(event=>event.eventId===packet.eventId))return;
+      events.push({eventId:packet.eventId,uid:sender.uid||sender.playerId,name:sender.name||"Игрок",won:packet.won===true,score:Math.max(0,Math.min(100,Math.round(Number(packet.score)||0))),at:Date.now()});
+      await this.ctx.storage.put("leaderboardEvents",events); return;
+    }
     if (packet.type === "input") {
       if (!Number.isFinite(packet.angle)) return;
       const host = this.hostSocket();
