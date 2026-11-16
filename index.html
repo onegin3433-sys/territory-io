@@ -18,11 +18,11 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 .brand-name{font-size:11px;font-weight:900;letter-spacing:.105em;line-height:1;color:#f4f8ff}
 .brand-sub{font-size:8px;font-weight:700;letter-spacing:.12em;color:#9fb5cc;margin-top:3px}
 #minimap{top:76px}
-.leaderboard{position:absolute;z-index:4;top:76px;left:8px;width:clamp(126px,34vw,168px);padding:9px 10px;border:1px solid #536985;border-radius:12px;background:linear-gradient(145deg,#142238ed,#0b1424eF);box-shadow:0 4px 16px #0008;backdrop-filter:blur(6px);pointer-events:none;color:#eaf2ff}
-.leaderboard-head{font-size:10px;font-weight:950;letter-spacing:.12em;color:#91a9c5;margin-bottom:7px}
-.leader-row{display:grid;grid-template-columns:17px minmax(0,1fr) auto;align-items:center;gap:5px;padding:4px 0;font-size:11px;font-weight:800}
-.leader-row+.leader-row{border-top:1px solid #ffffff12}
-.leader-rank{color:#9fb5cc}.leader-row:nth-child(2) .leader-rank{color:#ffd76a}.leader-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leader-pct{font-variant-numeric:tabular-nums;color:#7df0c0}
+.leaderboard{display:none;position:absolute;z-index:6;top:76px;left:8px;width:clamp(126px,34vw,168px);padding:8px 10px;border:1px solid #ffffff45;border-radius:12px;background:rgba(12,24,40,.48);box-shadow:0 3px 12px #0003;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);pointer-events:none;color:#f4f8ff}
+.leaderboard-head{font-size:10px;font-weight:950;letter-spacing:.12em;color:#d5e5f7aa;margin-bottom:5px}
+.leader-row{display:grid;grid-template-columns:17px minmax(0,1fr) auto;align-items:center;gap:5px;padding:4px 0;font-size:11px;font-weight:850;text-shadow:0 1px 3px #000b}
+.leader-row+.leader-row{border-top:1px solid #ffffff20}
+.leader-rank{color:#ffffffbd}.leader-row:first-child .leader-rank{color:#ffe08a}.leader-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leader-pct{font-variant-numeric:tabular-nums;color:#9fffd8}
 @media(max-width:370px){.leaderboard{top:72px;width:124px;padding:7px 8px}.leader-row{font-size:10px}}
 @media(max-width:370px){.brand{top:45px;padding:4px 7px;gap:5px}.brand-mark{width:20px;height:20px}.brand-name{font-size:10px}#minimap{top:72px}}
 #minimap{position:absolute;z-index:3;right:10px;top:58px;width:clamp(104px,27vw,150px);height:auto;aspect-ratio:1;border:2px solid #c5d5e9;border-radius:12px;background:#0b1422dd;box-shadow:0 3px 14px #0009;pointer-events:none}
@@ -248,6 +248,7 @@ function makePlayer(id,x,y,angle,isHuman=false){
 }
 function reset(){
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
+ const leaderboard=document.getElementById('leaderboard');if(leaderboard)leaderboard.style.display='block';
  land=new Uint8Array(C*C);land.fill(OUT);
  for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
  seedBase(1,390*SCALE,480*SCALE,68*SCALE);
@@ -725,6 +726,7 @@ document.getElementById('playButton').addEventListener('click',()=>{
  document.querySelector('.hud').style.display='flex';
  document.querySelector('.brand').style.display='flex';
  document.getElementById('minimap').style.display='block';
+ document.getElementById('leaderboard').style.display='block';
  reset();
 });
 connectOnline();requestAnimationFrame(loop);
