@@ -33,6 +33,18 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 .color-choice.selected{outline:3px solid #fff;outline-offset:3px}
 #playButton{width:100%;margin-top:12px;padding:14px;border:0;border-radius:14px;background:linear-gradient(135deg,#2ed28f,#159b77);color:#06251c;font-size:17px;font-weight:900}
 .hud,.brand,#minimap{display:none}
+.result-overlay{position:absolute;z-index:20;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 50% 35%,#233a58dd,#050b16f2 72%);backdrop-filter:blur(8px)}
+.result-overlay.show{display:flex;animation:resultFade .28s ease-out}
+.result-card{width:min(100%,390px);padding:28px 22px 24px;border:1px solid #7892b8;border-radius:25px;background:linear-gradient(155deg,#172b45f5,#0b1424f7);box-shadow:0 18px 70px #000b,0 0 35px #37cfff22;text-align:center;animation:resultPop .35s cubic-bezier(.2,.9,.25,1.2)}
+.result-emblem{font-size:64px;line-height:1.15;filter:drop-shadow(0 5px 15px #0008)}
+.result-title{margin:10px 0 7px;font-size:clamp(30px,8vw,42px);font-weight:1000;letter-spacing:.045em;line-height:1.05;text-transform:uppercase}
+.result-title.win{color:#ffe27a;text-shadow:0 0 9px #ffb52eaa,0 3px 0 #8a4d12}
+.result-title.lose{color:#ff8293;text-shadow:0 0 10px #ff365c88,0 3px 0 #702036}
+.result-subtitle{margin:0 0 22px;color:#c4d4e8;font-size:14px;line-height:1.5}
+.result-restart{width:100%;padding:15px 18px;border:0;border-radius:14px;background:linear-gradient(135deg,#42e6a4,#18a978);color:#06251b;font-size:16px;font-weight:950;box-shadow:0 7px 22px #18c88a44}
+.result-restart:active{transform:scale(.98)}
+@keyframes resultFade{from{opacity:0}to{opacity:1}}
+@keyframes resultPop{from{transform:translateY(14px) scale(.94);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
 </style>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -71,6 +83,14 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
 <canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
 <div id="message">Проводи пальцем в сторону движения. Полная карта — в углу.</div>
+<div class="result-overlay" id="resultOverlay" aria-live="polite">
+ <div class="result-card">
+  <div class="result-emblem" id="resultEmblem">🏆</div>
+  <div class="result-title win" id="resultTitle">ПОБЕДА!</div>
+  <p class="result-subtitle" id="resultSubtitle">Арена твоя! Отличная игра.</p>
+  <button class="result-restart" id="resultRestart">↻ НАЧАТЬ ЗАНОВО</button>
+ </div>
+</div>
 </main>
 <script>
 (()=>{
@@ -91,7 +111,7 @@ function resizeView(){const h=window.innerHeight;VIEW_H=960;VIEW_W=Math.max(320,
 window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
 const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
-let selectedSkin=localStorage.getItem('territorySkin')||'explorer',gameStarted=false;
+let selectedSkin=localStorage.getItem('territorySkin')||'explorer',gameStarted=false,gameFinished=false;
 const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
@@ -204,12 +224,13 @@ function capture(id,path){
   }
  }
  for(let i=0;i<land.length;i++)if(land[i]!==OUT&&land[i]!==id&&!seen[i])land[i]=id;
- updateScore();terrainDirty=true;playSound('capture');
+ updateScore();terrainDirty=true;playSound('capture');checkForWin();
 }
 function makePlayer(id,x,y,angle,isHuman=false){
  return{id,x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function reset(){
+ gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  land=new Uint8Array(C*C);land.fill(OUT);
  for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
  seedBase(1,390*SCALE,480*SCALE,68*SCALE);
@@ -280,6 +301,20 @@ function keepSingleTerritory(id,seed){
  // A player owns only the connected landmass attached to their original base.
  for(let i=0;i<land.length;i++)if(land[i]===id&&!seen[i])land[i]=EMPTY;
 }
+function showGameResult(won){
+ if(gameFinished)return;
+ gameFinished=true;gameStarted=false;touchActive=false;touchPointer=null;touchLast=null;
+ const overlay=document.getElementById('resultOverlay'),title=document.getElementById('resultTitle');
+ title.textContent=won?'ПОБЕДА!':'ИГРА ОКОНЧЕНА';
+ title.className='result-title '+(won?'win':'lose');
+ document.getElementById('resultEmblem').textContent=won?'🏆':'💫';
+ document.getElementById('resultSubtitle').textContent=won?'Все соперники повержены! Арена теперь твоя. Отличная игра!':'Твоя территория потеряна. Попробуй ещё раз — следующая арена может стать твоей!';
+ overlay.classList.add('show');
+ if(won)playSound('eliminate');else playSound('hit');
+}
+function checkForWin(){
+ if(!gameFinished&&player&&player.alive&&players&&players.filter(p=>!p.isHuman).every(p=>!p.alive))showGameResult(true);
+}
 function kill(p,reason,killer=null){
  if(!p.alive)return;
  playSound(killer?'eliminate':'hit');
@@ -300,10 +335,11 @@ function kill(p,reason,killer=null){
  terrainDirty=true;
  if(p.isHuman){
   touchActive=false;touchPointer=null;touchLast=null;
-  if(!killer)msg.textContent=reason||'Ты выбыл из игры! Нажми «Заново», чтобы сыграть ещё раз.';
+  if(!killer){msg.textContent=reason||'Ты выбыл из игры!';showGameResult(false);}
  }else if(!killer){
   msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры!';
  }
+ checkForWin();
 }
 function checkTrailHit(mover,from,to){
  // A head touching another player's exposed trail eliminates its owner.
@@ -648,6 +684,7 @@ document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','A
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
 
 document.getElementById('restart').addEventListener('click',()=>{playSound('click');reset();});
+document.getElementById('resultRestart').addEventListener('click',()=>{playSound('click');reset();});
 const menu=document.getElementById('mainMenu');
 document.querySelectorAll('.skin-choice').forEach(button=>{
  if(button.dataset.skin===selectedSkin)button.classList.add('selected');
