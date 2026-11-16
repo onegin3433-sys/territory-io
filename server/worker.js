@@ -23,7 +23,6 @@ export class GameRoom extends DurableObject {
     super(ctx, env);
     this.ctx = ctx;
     this.latestSnapshot = null;
-    this.nextId = 1;
   }
 
   sockets() {
@@ -82,7 +81,7 @@ export class GameRoom extends DurableObject {
       server.close(4001, "Room is full");
       return new Response("Room is full", { status: 503 });
     }
-    const playerId = String(this.nextId++);
+    const playerId = crypto.randomUUID();
     const requestedName = (url.searchParams.get("name") || "Игрок").trim();
     const name = Array.from(requestedName).slice(0, MAX_NAME_LENGTH).join("") || "Игрок";
     const uid = (url.searchParams.get("uid") || playerId).slice(0,64);
@@ -145,6 +144,7 @@ export class GameRoom extends DurableObject {
           host.send(JSON.stringify({
             type: "player_input",
             playerId: sender.playerId,
+            slot: sender.slot,
             angle: Math.max(-Math.PI, Math.min(Math.PI, packet.angle))
           }));
         } catch {}
