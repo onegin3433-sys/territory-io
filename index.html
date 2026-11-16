@@ -277,7 +277,8 @@ function connectOnline(){
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
     if(onlineIsHost&&players){const left=players.filter(p=>!roomRoster.some(r=>r.slot===p.id));for(const p of left){if(p.id!==onlineSlot){p.alive=false;for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;}}players=players.filter(p=>p.id===onlineSlot||roomRoster.some(r=>r.slot===p.id));terrainDirty=true;updateScore();sendWorldSnapshot(true);}
     if(packet.hostChanged){onlineIsHost=String(packet.hostId||'')===onlinePlayerId;if(onlineIsHost){setOnlineStatus('ведущий');if(pendingStart||gameStarted)reset();}}
-   }else if((packet.type==='start_request'||packet.type==='restart_request')&&onlineIsHost){\n    if(packet.type==='restart_request'||!gameStarted||gameFinished||!land){reset();}else{sendWorldSnapshot(true);}\n   }else if(packet.type==='player_input'&&onlineIsHost&&players){
+   }else if((packet.type==='start_request'||packet.type==='restart_request')&&onlineIsHost){
+    if(packet.type==='restart_request'||!gameStarted||gameFinished||!land){reset();}else{sendWorldSnapshot(true);}\n   }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const p=players.find(q=>q.id===roomRoster.find(r=>r.playerId===packet.playerId)?.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){applyWorld(packet.world);requestAnimationFrame(hideLoading);}
   });
