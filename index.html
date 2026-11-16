@@ -343,8 +343,8 @@ function moveOne(p,dt){
  if(!own){
   p.outside=true;
   const samples=sampleSegment(from,to,3.6);
+  // Trail length is unrestricted: do not eliminate a player for drawing a long route.
   p.trail.push(...samples);
-  if(p.trail.length>500){kill(p,p.isHuman?'Слишком длинный след — вернись на свою территорию!':'');return;}
  }else if(p.outside&&p.trail.length){
   const closing=sampleSegment(from,to,3.6);p.trail.push(...closing);
   capture(p.id,p.trail);p.trail=[];p.outside=false;
