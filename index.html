@@ -137,65 +137,58 @@ function unlockAudio(){
   return resumed.then(()=>audioContext.state==='running').catch(error=>{console.warn('Audio unavailable',error);return false;});
  }catch(error){console.warn('Audio unavailable',error);return Promise.resolve(false);}
 }
-function tone(freq,duration,shape='sine',volume=.07,slide=0,delay=0){
- if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
- try{
-  const t=audioContext.currentTime+delay,osc=audioContext.createOscillator(),gain=audioContext.createGain();
-  osc.type=shape;osc.frequency.setValueAtTime(Math.max(25,freq),t);
-  if(slide)osc.frequency.exponentialRampToValueAtTime(Math.max(25,freq+slide),t+duration);
-  gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(volume,t+.018);
-  gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
-  osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+duration+.03);
- }catch(error){console.warn('Sound playback failed',error);}
-}
-let noiseBuffer=null;
-function noiseBurst(duration=.12,volume=.035,filterFreq=1400,delay=0){
- if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
- try{
-  if(!noiseBuffer){
-   noiseBuffer=audioContext.createBuffer(1,audioContext.sampleRate, audioContext.sampleRate);
-   const data=noiseBuffer.getChannelData(0);
-   for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
+const soundBuffers={};
+function buildSound(kind){
+ if(!audioContext)return null;
+ const rate=22050,durations={capture:.62,eliminate:.52,hit:.38,click:.10,start:.72};
+ const duration=durations[kind]||.2,length=Math.floor(rate*duration);
+ const buffer=audioContext.createBuffer(1,length,rate),data=buffer.getChannelData(0);
+ let seed=kind.split('').reduce((n,c)=>n+c.charCodeAt(0),17);
+ const random=()=>{seed=(seed*16807)%2147483647;return seed/2147483647*2-1;};
+ let lowNoise=0;
+ for(let i=0;i<length;i++){
+  const t=i/rate,p=t/duration;
+  let sample=0,env=0;
+  if(kind==='capture'){
+   // Bright, glassy collection sparkle: several bell partials, not a beep.
+   env=Math.exp(-t*5.4)*(1-Math.exp(-t*85));
+   sample=env*(.42*Math.sin(2*Math.PI*660*t)+.25*Math.sin(2*Math.PI*990*t+0.3)+.17*Math.sin(2*Math.PI*1320*t)+.10*Math.sin(2*Math.PI*1980*t));
+   sample+=random()*.035*Math.exp(-t*34);
+  }else if(kind==='hit'){
+   // Deep padded thump with a short filtered-noise attack.
+   lowNoise+=.12*(random()-lowNoise);
+   env=Math.exp(-t*13);
+   sample=env*(.8*Math.sin(2*Math.PI*(92-48*p)*t)+.45*lowNoise);
+  }else if(kind==='eliminate'){
+   // Crunchy impact followed by a descending metallic, game-like tail.
+   lowNoise+=.22*(random()-lowNoise);
+   const tail=Math.max(0,1-p);
+   env=Math.exp(-t*7);
+   sample=.58*lowNoise*env+.42*Math.sin(2*Math.PI*(310-210*p)*t)*Math.exp(-t*4);
+   sample+=.16*Math.sin(2*Math.PI*880*t)*Math.exp(-t*17);
+  }else if(kind==='click'){
+   env=Math.exp(-t*55);
+   sample=.55*Math.sin(2*Math.PI*(780-360*p)*t)*env+random()*.16*env;
+  }else if(kind==='start'){
+   // Short three-note fanfare with soft percussive attack.
+   const notes=[[392,0],[523,.16],[659,.33]];
+   for(const [f,at] of notes){const q=t-at;if(q>=0){const e=Math.exp(-q*7)*(1-Math.exp(-q*75));sample+=.28*e*(Math.sin(2*Math.PI*f*q)+.22*Math.sin(2*Math.PI*f*2.01*q));}}
+   sample+=random()*.025*Math.exp(-t*18);
   }
-  const t=audioContext.currentTime+delay,src=audioContext.createBufferSource(),filter=audioContext.createBiquadFilter(),gain=audioContext.createGain();
-  src.buffer=noiseBuffer;filter.type='lowpass';filter.frequency.setValueAtTime(filterFreq,t);
-  filter.frequency.exponentialRampToValueAtTime(Math.max(180,filterFreq*.35),t+duration);
-  gain.gain.setValueAtTime(.0001,t);gain.gain.linearRampToValueAtTime(volume,t+.012);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
-  src.connect(filter);filter.connect(gain);gain.connect(audioContext.destination);src.start(t);src.stop(t+duration+.02);
- }catch(error){console.warn('Noise playback failed',error);}
+  data[i]=Math.max(-1,Math.min(1,sample*.82));
+ }
+ return buffer;
 }
 async function playSound(kind){
  if(!soundEnabled)return;
  if(!audioContext||audioContext.state!=='running'){const ready=await unlockAudio();if(!ready)return;}
- if(!soundEnabled)return;
- if(kind==='capture'){
-  // Warm collection chime with a soft impact and rising sparkle.
-  tone(330,.20,'sine',.055,95);
-  tone(495,.24,'triangle',.045,145,.045);
-  tone(660,.30,'sine',.035,170,.095);
-  tone(990,.22,'sine',.018,-90,.16);
-  noiseBurst(.10,.018,1900,.015);
- }else if(kind==='eliminate'){
-  // Arcade knockout: compact impact followed by a bright descending sweep.
-  noiseBurst(.20,.065,850);
-  tone(155,.34,'sine',.085,-95);
-  tone(420,.23,'sawtooth',.025,-260,.025);
-  tone(740,.16,'triangle',.025,-430,.08);
- }else if(kind==='hit'){
-  // Soft low thump and short air burst.
-  noiseBurst(.16,.055,520);
-  tone(105,.30,'sine',.095,-55);
-  tone(72,.22,'triangle',.045,-25,.055);
- }else if(kind==='click'){
-  tone(520,.045,'sine',.022,-100);
-  noiseBurst(.035,.012,2600);
- }else if(kind==='start'){
-  // Short rising arcade intro.
-  noiseBurst(.22,.018,1200);
-  tone(262,.18,'sine',.035,90);
-  tone(392,.20,'triangle',.035,130,.07);
-  tone(523,.25,'sine',.04,175,.14);
- }
+ if(!soundEnabled||!audioContext)return;
+ try{
+  if(!soundBuffers[kind])soundBuffers[kind]=buildSound(kind);
+  const source=audioContext.createBufferSource(),gain=audioContext.createGain();
+  source.buffer=soundBuffers[kind];gain.gain.value=kind==='hit'?.9:.78;
+  source.connect(gain);gain.connect(audioContext.destination);source.start();
+ }catch(error){console.warn('Sound playback failed',error);}
 }
 updateSoundButton();
 // Разблокируем Web Audio при первом реальном касании/нажатии пользователя.
