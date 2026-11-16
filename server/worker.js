@@ -48,7 +48,8 @@ export class GameRoom extends DurableObject {
       return {
         playerId: data.playerId,
         name: data.name || "Игрок",
-        isHost: data.isHost === true
+        isHost: data.isHost === true,
+        slot: data.slot
       };
     });
   }
@@ -58,23 +59,31 @@ export class GameRoom extends DurableObject {
     const client = pair[0];
     const server = pair[1];
     const wasEmpty = this.sockets().length === 0;
+    const occupied = new Set(this.roster().map(player => player.slot));
+    let slot = 1;
+    while (occupied.has(slot) && slot <= 4) slot++;
+    if (slot > 4) {
+      server.close(4001, "Room is full");
+      return new Response("Room is full", { status: 503 });
+    }
     const playerId = String(this.nextId++);
     const url = new URL(request.url);
     const requestedName = (url.searchParams.get("name") || "Игрок").trim();
     const name = Array.from(requestedName).slice(0, MAX_NAME_LENGTH).join("") || "Игрок";
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ playerId, name, isHost: wasEmpty });
+    server.serializeAttachment({ playerId, name, isHost: wasEmpty, slot });
 
     server.send(JSON.stringify({
       type: "welcome",
       playerId,
       hostId: wasEmpty ? playerId : this.hostId(),
       players: this.roster(),
+      slot,
       snapshot: wasEmpty ? null : this.latestSnapshot
     }));
     this.broadcast({
       type: "player_joined",
-      player: { playerId, name, isHost: wasEmpty },
+      player: { playerId, name, isHost: wasEmpty, slot },
       players: this.roster()
     }, server);
     return new Response(null, { status: 101, webSocket: client });
