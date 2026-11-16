@@ -128,22 +128,23 @@ const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,initialTerrain=true,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
-let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,onlineRetryTimer=null,roomRoster=[];
+let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,onlineRetryTimer=null,roomRoster=[],pendingStart=false;
 const onlineStatusEl=document.getElementById('onlineStatus');
 const spawnPoints={1:[455*SCALE,480*SCALE,0],2:[690*SCALE,285*SCALE,2.5],3:[690*SCALE,680*SCALE,-2],4:[270*SCALE,700*SCALE,-.2]};
 function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text;}
 function sendPacket(packet){if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){try{onlineSocket.send(JSON.stringify(packet));}catch{}}}
 function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=String.fromCharCode(...land.subarray(i,Math.min(i+8192,land.length)));return btoa(binary);}
 function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
-function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,trail:p.trail.slice(-180)}))};}
+function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:p.trail.slice(-180)}))};}
 function applyWorld(world){
  if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return;
+ pendingStart=false;
  const sharedLand=decodeLand(world.land);if(!sharedLand)return;
  land=sharedLand;initialTerrain=!!world.initialTerrain;
  players=world.players.filter(p=>p&&Number.isInteger(p.id)&&p.id>=1&&p.id<=4).map(data=>{
   const local=data.id===onlineSlot,p=makePlayer(data.id,data.x,data.y,data.angle,local);
   p.name=String(data.name||('Игрок '+data.id)).slice(0,18);p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
-  p.alive=!!data.alive;p.outside=!!data.outside;p.trail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
+  p.alive=!!data.alive;p.outside=!!data.outside;p.isBot=!!data.isBot;p.trail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
   p.isRemote=!local;return p;
  });
  player=players.find(p=>p.id===onlineSlot)||null;
@@ -156,9 +157,12 @@ function applyWorld(world){
 function ensureRosterPlayers(){
  if(!onlineIsHost||!land)return;
  for(const entry of roomRoster){
-  const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4||players.some(p=>p.id===slot))continue;
+  const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4)continue;
+  const existing=players.find(p=>p.id===slot);
+  if(existing&&!existing.isBot)continue;
+  if(existing){existing.alive=false;players=players.filter(p=>p!==existing);}
   const spawn=spawnPoints[slot],p=makePlayer(slot,spawn[0],spawn[1],spawn[2],false);
-  p.name=entry.name||('Игрок '+slot);p.isRemote=true;players.push(p);terrainDirty=true;
+  p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;players.push(p);terrainDirty=true;
  }
  updateScore();
 }
@@ -174,6 +178,7 @@ function connectOnline(){
     onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
     if(packet.snapshot)applyWorld(packet.snapshot);
+    else if(onlineIsHost&&pendingStart)reset();
     else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
    }else if(packet.type==='player_joined'){
     roomRoster=Array.isArray(packet.players)?packet.players:roomRoster;onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
@@ -290,7 +295,7 @@ function makePlayer(id,x,y,angle,isHuman=false){
  return{id,name:names[id]||('Игрок '+id),x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function reset(){
- gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
+ gameFinished=false;gameStarted=true;pendingStart=false;document.getElementById('resultOverlay').classList.remove('show');
  const leaderboard=document.getElementById('leaderboard');if(leaderboard)leaderboard.style.display='block';
  if(!onlineIsHost){gameStarted=false;sendPacket({type:'request_snapshot'});msg.textContent='Ожидаем ведущего комнаты…';return;}
  land=new Uint8Array(C*C);land.fill(OUT);
@@ -302,7 +307,12 @@ function reset(){
  for(const entry of roomRoster){
   const slot=entry.slot,spawn=spawnPoints[slot];if(!spawn)continue;
   const p=makePlayer(slot,spawn[0],spawn[1],spawn[2],slot===onlineSlot);
-  p.name=entry.name||('Игрок '+slot);p.isRemote=slot!==onlineSlot;players.push(p);
+  p.name=entry.name||('Игрок '+slot);p.isRemote=slot!==onlineSlot;p.isBot=false;players.push(p);
+ }
+ for(let slot=1;slot<=4;slot++){
+  if(players.some(p=>p.id===slot))continue;
+  const spawn=spawnPoints[slot],bot=makePlayer(slot,spawn[0],spawn[1],spawn[2],false);
+  bot.name=['','Блиц','Тень','Искра','Вихрь'][slot]||('Бот '+slot);bot.isBot=true;bot.isRemote=false;bot.isHuman=false;players.push(bot);
  }
  player=players.find(p=>p.id===onlineSlot)||players[0];
  frame=0;initialTerrain=true;cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();msg.textContent='Общая арена запущена!';sendWorldSnapshot(true);draw();
@@ -769,12 +779,14 @@ document.querySelectorAll('.color-choice').forEach(button=>{
 });
 document.getElementById('playButton').addEventListener('click',()=>{
  unlockAudio().then(ready=>{if(ready&&soundEnabled)playSound('start');});
- gameStarted=true;menu.style.display='none';
+ pendingStart=true;gameStarted=false;menu.style.display='none';
  document.querySelector('.hud').style.display='flex';
  document.querySelector('.brand').style.display='flex';
  document.getElementById('minimap').style.display='block';
  document.getElementById('leaderboard').style.display='block';
- reset();
+ if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN&&onlinePlayerId){
+  if(onlineIsHost)reset();else{sendPacket({type:'request_snapshot'});msg.textContent='Ожидаем ведущего комнаты…';}
+ }else{msg.textContent='Подключаемся к серверу…';setOnlineStatus('подключение…');}
 });
 connectOnline();requestAnimationFrame(loop);
 })();
