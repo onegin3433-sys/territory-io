@@ -59,7 +59,8 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 .result-title.lose{color:#ff8293;text-shadow:0 0 10px #ff365c88,0 3px 0 #702036}
 .result-subtitle{margin:0 0 22px;color:#c4d4e8;font-size:14px;line-height:1.5}
 .result-restart{width:100%;padding:15px 18px;border:0;border-radius:14px;background:linear-gradient(135deg,#42e6a4,#18a978);color:#06251b;font-size:16px;font-weight:950;box-shadow:0 7px 22px #18c88a44}
-.result-restart:active{transform:scale(.98)}
+.result-restart:active,.result-menu:active{transform:scale(.98)}
+.result-menu{width:100%;margin-top:10px;padding:13px 18px;border:1px solid #7892b8;border-radius:14px;background:#203650;color:#eef4ff;font-size:15px;font-weight:900}
 @keyframes resultFade{from{opacity:0}to{opacity:1}}
 @keyframes resultPop{from{transform:translateY(14px) scale(.94);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
 </style>
@@ -112,6 +113,7 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
   <div class="result-title win" id="resultTitle">ПОБЕДА!</div>
   <p class="result-subtitle" id="resultSubtitle">Арена твоя! Отличная игра.</p>
   <button class="result-restart" id="resultRestart">↻ НАЧАТЬ ЗАНОВО</button>
+  <button class="result-menu" id="resultMenu">⌂ В МЕНЮ</button>
  </div>
 </div>
 </main>
@@ -801,6 +803,17 @@ document.addEventListener('keyup',e=>{keys[e.key]=false;});
 document.getElementById('restart').addEventListener('click',()=>{playSound('click');reset();});
 document.getElementById('resultRestart').addEventListener('click',()=>{playSound('click');reset();});
 const menu=document.getElementById('mainMenu');
+document.getElementById('resultMenu').addEventListener('click',()=>{
+ playSound('click');
+ gameStarted=false;gameFinished=false;pendingStart=false;
+ document.getElementById('resultOverlay').classList.remove('show');
+ document.getElementById('gameLoading').classList.remove('show');
+ document.querySelector('.hud').style.display='none';
+ document.querySelector('.brand').style.display='none';
+ document.getElementById('minimap').style.display='none';
+ document.getElementById('leaderboard').style.display='none';
+ menu.style.display='flex';
+});
  const rankingOverlay=document.getElementById("rankingOverlay"),rankingRows=document.getElementById("rankingRows");
  function escapeRanking(value){return String(value||"Игрок").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
  async function loadRanking(period){
