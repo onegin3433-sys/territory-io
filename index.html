@@ -711,9 +711,10 @@ function draw(){
    const skinEmoji={robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
    const bob=Math.sin(frame*.22)*3;
-   ctx.shadowColor=COLORS[p.id];ctx.shadowBlur=24;
-   ctx.beginPath();ctx.arc(0,0,39,0,Math.PI*2);ctx.fillStyle=COLORS[p.id]+'55';ctx.fill();
-   ctx.shadowBlur=0;ctx.font='76px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+   ctx.shadowColor=COLORS[p.id];ctx.shadowBlur=20;
+   ctx.beginPath();ctx.arc(0,0,43,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();
+   ctx.shadowBlur=0;ctx.lineWidth=5;ctx.strokeStyle='#ffffff';ctx.stroke();
+   ctx.font='76px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
    ctx.fillText(skinEmoji[selectedSkin]||'🐱',0,bob);ctx.restore();
   }else if(p.isHuman){
    // Explorer kitten: layered, shaded 3D-style character with goggles and backpack.
@@ -818,7 +819,6 @@ function draw(){
     ctx.globalAlpha=1;ctx.font='bold 25px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='#ffdf70';ctx.shadowBlur=12;ctx.fillText('👑',0,-67+Math.sin(frame*.16)*3);ctx.shadowBlur=0;
    }
-   if(p.isHuman){ctx.font='900 18px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=5;ctx.strokeStyle='#102033';ctx.strokeText('ТЫ',0,76);ctx.fillStyle='#fff';ctx.fillText('ТЫ',0,76);}
    ctx.restore();
   }
  }
