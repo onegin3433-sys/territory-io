@@ -135,7 +135,7 @@ function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text
 function sendPacket(packet){if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){try{onlineSocket.send(JSON.stringify(packet));}catch{}}}
 function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=String.fromCharCode(...land.subarray(i,Math.min(i+8192,land.length)));return btoa(binary);}
 function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
-function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,trail:p.trail.slice(-900)}))};}
+function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,trail:p.trail.slice(-180)}))};}
 function applyWorld(world){
  if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return;
  const sharedLand=decodeLand(world.land);if(!sharedLand)return;
@@ -143,7 +143,7 @@ function applyWorld(world){
  players=world.players.filter(p=>p&&Number.isInteger(p.id)&&p.id>=1&&p.id<=4).map(data=>{
   const local=data.id===onlineSlot,p=makePlayer(data.id,data.x,data.y,data.angle,local);
   p.name=String(data.name||('Игрок '+data.id)).slice(0,18);p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
-  p.alive=!!data.alive;p.outside=!!data.outside;p.trail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-900):[];
+  p.alive=!!data.alive;p.outside=!!data.outside;p.trail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
   p.isRemote=!local;return p;
  });
  player=players.find(p=>p.id===onlineSlot)||null;
@@ -156,7 +156,7 @@ function ensureRosterPlayers(){
  for(const entry of roomRoster){
   const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4||players.some(p=>p.id===slot))continue;
   const spawn=spawnPoints[slot],p=makePlayer(slot,spawn[0],spawn[1],spawn[2],false);
-  p.name=entry.name||('Игрок '+slot);p.isRemote=true;players.push(p);seedBase(slot,...spawn.slice(0,2),slot===1?68*SCALE:57*SCALE);terrainDirty=true;
+  p.name=entry.name||('Игрок '+slot);p.isRemote=true;players.push(p);terrainDirty=true;
  }
  updateScore();
 }
@@ -290,7 +290,7 @@ function makePlayer(id,x,y,angle,isHuman=false){
 function reset(){
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  const leaderboard=document.getElementById('leaderboard');if(leaderboard)leaderboard.style.display='block';
- if(!onlineIsHost){sendPacket({type:'request_snapshot'});msg.textContent='Ожидаем ведущего комнаты…';return;}
+ if(!onlineIsHost){gameStarted=false;sendPacket({type:'request_snapshot'});msg.textContent='Ожидаем ведущего комнаты…';return;}
  land=new Uint8Array(C*C);land.fill(OUT);
  for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
  seedBase(1,390*SCALE,480*SCALE,68*SCALE);
@@ -587,11 +587,6 @@ function draw(){
  for(const p of players){
   if(p.alive&&p.trail.length>1){ctx.beginPath();ctx.moveTo(p.trail[0].x,p.trail[0].y);for(let i=1;i<p.trail.length;i++)ctx.lineTo(p.trail[i].x,p.trail[i].y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=COLORS[p.id];ctx.lineWidth=36;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
  }
- for(const remote of remotePlayers.values()){
-  if(remote.trail.length>1){ctx.beginPath();ctx.moveTo(remote.trail[0].x,remote.trail[0].y);for(let i=1;i<remote.trail.length;i++)ctx.lineTo(remote.trail[i].x,remote.trail[i].y);ctx.lineTo(remote.x,remote.y);ctx.strokeStyle='#55c7ff';ctx.lineWidth=30;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();}
-  ctx.beginPath();ctx.arc(remote.x,remote.y,29,0,Math.PI*2);ctx.fillStyle='#55c7ff';ctx.fill();ctx.lineWidth=7;ctx.strokeStyle='#f4f7ff';ctx.stroke();
-  ctx.beginPath();ctx.moveTo(remote.x,remote.y);ctx.lineTo(remote.x+Math.cos(remote.angle)*48,remote.y+Math.sin(remote.angle)*48);ctx.strokeStyle='#102033';ctx.lineWidth=8;ctx.stroke();
- }
  for(const p of players){
   if(!p.alive)continue;
   if(p.isHuman&&selectedSkin!=='explorer'){
@@ -697,7 +692,6 @@ function draw(){
  miniCtx.imageSmoothingEnabled=true;miniCtx.imageSmoothingQuality='high';miniCtx.drawImage(terrainCanvas,0,0,240,240);
  miniCtx.beginPath();miniCtx.arc(120,120,R/W*240,0,Math.PI*2);miniCtx.strokeStyle='#d8e5f5';miniCtx.lineWidth=2;miniCtx.stroke();
  for(const p of players){if(!p.alive)continue;miniCtx.beginPath();miniCtx.arc(p.x/W*240,p.y/W*240,p.isHuman?4:3,0,Math.PI*2);miniCtx.fillStyle=COLORS[p.id];miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
- for(const remote of remotePlayers.values()){miniCtx.beginPath();miniCtx.arc(remote.x/W*240,remote.y/W*240,4,0,Math.PI*2);miniCtx.fillStyle='#55c7ff';miniCtx.fill();miniCtx.strokeStyle='#fff';miniCtx.lineWidth=1;miniCtx.stroke();}
  const rx=cameraX/W*240,ry=cameraY/W*240,rw=VIEW_W/W*240,rh=VIEW_H/W*240;
  miniCtx.strokeStyle='#ffffff';miniCtx.lineWidth=1.5;miniCtx.strokeRect(rx,ry,rw,rh);
 }
