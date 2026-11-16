@@ -309,7 +309,7 @@ function hideLoading(){
 function sendPacket(packet){if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){try{onlineSocket.send(JSON.stringify(packet));}catch{}}}
 function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=String.fromCharCode(...land.subarray(i,Math.min(i+8192,land.length)));return btoa(binary);}
 function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
-function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:p.trail.slice(-180)}))};}
+function worldSnapshot(){return{land:encodeLand(),initialTerrain,players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:p.trail.slice(-240)}))};}
 function applyWorld(world){
  if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return false;
  pendingStart=false;
