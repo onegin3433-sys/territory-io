@@ -144,7 +144,7 @@ function tone(freq,duration,shape='sine',volume=.07,slide=0,delay=0){
  osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+duration+.025);
 }
 function playSound(kind){
- if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
+ if(!soundEnabled||!audioContext)return;
  if(kind==='capture'){tone(520,.16,'sine',.075,210);tone(780,.22,'triangle',.055,180,.07);tone(1040,.26,'sine',.035,120,.14);}
  else if(kind==='eliminate'){tone(660,.12,'triangle',.065,-180);tone(880,.18,'sine',.055,220,.09);tone(1180,.25,'sine',.04,160,.18);}
  else if(kind==='hit'){tone(240,.2,'triangle',.08,-130);tone(115,.28,'sine',.07,-55,.08);}
@@ -152,7 +152,10 @@ function playSound(kind){
  else if(kind==='start'){tone(392,.12,'sine',.05,70);tone(523,.16,'sine',.05,100,.1);tone(784,.2,'triangle',.045,120,.2);}
 }
 updateSoundButton();
-soundButton?.addEventListener('click',()=>{soundEnabled=!soundEnabled;localStorage.setItem('territorySound',soundEnabled?'on':'off');updateSoundButton();if(soundEnabled)unlockAudio().then(()=>playSound('click'));});
+ soundButton?.addEventListener('click',()=>{
+ soundEnabled=!soundEnabled;localStorage.setItem('territorySound',soundEnabled?'on':'off');updateSoundButton();
+ if(soundEnabled){unlockAudio();playSound('start');}
+ });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function valid(x,y){return x>=0&&y>=0&&x<C&&y<C&&Math.hypot((x+.5)*S-CX,(y+.5)*S-CY)<=R;}
@@ -655,7 +658,7 @@ const menu=document.getElementById('mainMenu');
 document.querySelectorAll('.skin-choice').forEach(button=>{
  if(button.dataset.skin===selectedSkin)button.classList.add('selected');
  button.addEventListener('click',()=>{
-  selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);unlockAudio().then(()=>playSound('click'));
+  selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);unlockAudio();playSound('click');
   document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));
  });
 });
@@ -667,7 +670,7 @@ document.querySelectorAll('.color-choice').forEach(button=>{
  });
 });
 document.getElementById('playButton').addEventListener('click',()=>{
- unlockAudio().then(()=>playSound('start'));
+ unlockAudio();playSound('start');
  gameStarted=true;menu.style.display='none';
  document.querySelector('.hud').style.display='flex';
  document.querySelector('.brand').style.display='flex';
