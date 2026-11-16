@@ -335,7 +335,9 @@ function kill(p,reason,killer=null){
  terrainDirty=true;
  if(p.isHuman){
   touchActive=false;touchPointer=null;touchLast=null;
-  if(!killer){msg.textContent=reason||'Ты выбыл из игры!';showGameResult(false);}
+  msg.textContent=killer?'Твой след пересёк соперник!':'Ты выбыл из игры!';
+  // Show the defeat screen regardless of whether a rival delivered the final hit.
+  showGameResult(false);
  }else if(!killer){
   msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры!';
  }
