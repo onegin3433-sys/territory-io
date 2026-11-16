@@ -334,10 +334,14 @@ function ensureRosterPlayers(){
  for(const entry of roomRoster){
   const slot=entry.slot;if(!Number.isInteger(slot)||slot<1||slot>4)continue;
   const existing=players.find(p=>p.id===slot);
-  if(existing&&!existing.isBot){existing.name=entry.name||existing.name;existing.isRemote=slot!==onlineSlot;existing.isBot=false;continue;}
-  if(existing){existing.alive=false;players=players.filter(p=>p!==existing);}
-  const spawn=spawnPoints[slot],p=makePlayer(slot,spawn[0],spawn[1],spawn[2],false);
-  p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;players.push(p);terrainDirty=true;
+  if(existing){
+   existing.name=entry.name||existing.name;existing.isBot=false;
+   existing.isHuman=slot===onlineSlot;existing.isRemote=slot!==onlineSlot;
+   continue;
+  }
+  const spawn=findFreeSpawn(slot),p=makePlayer(slot,spawn.x,spawn.y,spawn.angle,false);
+  p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;p.isHuman=false;
+  seedBase(slot,spawn.x,spawn.y,48*SCALE);players.push(p);terrainDirty=true;
  }
  updateScore();
 }
@@ -376,7 +380,7 @@ function connectOnline(){
 }
 function sendWorldSnapshot(force=false){
  if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
- const now=performance.now();if(!force&&now-lastSnapshotAt<180)return;lastSnapshotAt=now;
+ const now=performance.now();if(!force&&now-lastSnapshotAt<320)return;lastSnapshotAt=now;
  sendPacket({type:'snapshot',world:worldSnapshot()});
 }
 function sendOnlineInput(angle){if(!onlineIsHost)sendPacket({type:'input',angle});}
@@ -1052,7 +1056,8 @@ document.getElementById('resultRestart').addEventListener('click',()=>{playSound
 const menu=document.getElementById('mainMenu');
 document.getElementById('resultMenu').addEventListener('click',()=>{
  playSound('click');
- gameStarted=false;gameFinished=false;pendingStart=false;
+ gameFinished=false;pendingStart=false;
+ if(!land)gameStarted=false;
  document.getElementById('resultOverlay').classList.remove('show');
  hideLoading();
  document.querySelector('.hud').style.display='none';
