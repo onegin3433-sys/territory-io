@@ -798,7 +798,7 @@ const menu=document.getElementById('mainMenu');
    const response=await fetch("https://territory-wars-server.onegin343.workers.dev/leaderboard?period="+period,{cache:"no-store"});
    if(!response.ok)throw new Error("HTTP "+response.status);
    const data=await response.json(),rows=Array.isArray(data.players)?data.players:[];
-   rankingRows.innerHTML=rows.length?rows.map((p,i)=>'<div class="ranking-row"><div class="ranking-place">'+(i+1)+'.</div><div><div class="ranking-player">'+escapeRanking(p.name)+'</div><div class="ranking-meta">Побед: '+p.wins+' · Игр: '+p.games+'</div></div><div class="ranking-score">'+p.best+'%</div></div>').join(''):'<div class="ranking-meta" style="padding:18px 2px;text-align:center">Пока нет результатов. Сыграй первую партию!</div>';
+   rankingRows.innerHTML=rows.length?rows.map((p,i)=>'<div class="ranking-row"><div class="ranking-place">'+(i+1)+'.</div><div><div class="ranking-player">'+escapeRanking(p.name)+'</div><div class="ranking-meta">Очки: '+p.points+' · Игр: '+p.games+'</div></div><div class="ranking-score">'+p.best+'%</div></div>').join(''):'<div class="ranking-meta" style="padding:18px 2px;text-align:center">Пока нет результатов. Сыграй первую партию!</div>';
   }catch(e){rankingRows.innerHTML='<div class="ranking-meta" style="padding:18px 2px">Не удалось загрузить рейтинг. Попробуй позже.</div>';}
  }
  document.getElementById("openRanking").addEventListener("click",()=>{rankingOverlay.classList.add("show");loadRanking("all");});
