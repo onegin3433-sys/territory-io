@@ -282,7 +282,7 @@ const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,initialTerrain=true,touchActive=false,touchPointer=null,touchLast=null,keys={};
-let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,lastPlayerStateAt=0,onlineRetryTimer=null,loadingTimer=null,roomRoster=[],pendingStart=false,connectionStarted=false,currentRoundId="",resultRecorded=false;
+let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,lastPlayerStateAt=0,lastTrailStateAt=0,onlineRetryTimer=null,loadingTimer=null,roomRoster=[],pendingStart=false,connectionStarted=false,currentRoundId="",resultRecorded=false;
 const onlineStatusEl=document.getElementById('onlineStatus');
 const spawnPoints={1:[455*SCALE,480*SCALE,0],2:[690*SCALE,285*SCALE,2.5],3:[690*SCALE,680*SCALE,-2],4:[270*SCALE,700*SCALE,-.2]};
 function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text;}
@@ -314,18 +314,33 @@ function applyWorld(world){
  if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return false;
  pendingStart=false;
  const sharedLand=decodeLand(world.land);if(!sharedLand)return false;
- land=sharedLand;initialTerrain=!!world.initialTerrain;
- players=world.players.filter(p=>p&&Number.isInteger(p.id)&&p.id>=1&&p.id<=4).map(data=>{
-  const local=data.id===onlineSlot,p=makePlayer(data.id,data.x,data.y,data.angle,local);
-  p.name=String(data.name||('Игрок '+data.id)).slice(0,18);p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
-  p.alive=!!data.alive;p.outside=!!data.outside;p.isBot=!!data.isBot;p.trail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
-  p.isRemote=!local;return p;
- });
+ let mapChanged=!land||land.length!==sharedLand.length;
+ if(!mapChanged){for(let i=0;i<sharedLand.length;i++)if(land[i]!==sharedLand[i]){mapChanged=true;break;}}
+ if(mapChanged){land=sharedLand;terrainDirty=true;updateScore();}
+ initialTerrain=!!world.initialTerrain;
+ const nextPlayers=[];
+ for(const data of world.players){
+  if(!data||!Number.isInteger(data.id)||data.id<1||data.id>4)continue;
+  const local=data.id===onlineSlot;
+  let p=players&&players.find(q=>q.id===data.id);
+  if(!p){p=makePlayer(data.id,data.x,data.y,data.angle,local);p.x=data.x;p.y=data.y;p.trail=[];}
+  p.name=String(data.name||('Игрок '+data.id)).slice(0,18);
+  p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
+  p.netX=data.x;p.netY=data.y;
+  p.alive=!!data.alive;p.outside=!!data.outside;p.isBot=!!data.isBot;
+  const snapshotTrail=Array.isArray(data.trail)?data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180):[];
+  if(!p.outside)p.trail=[];
+  else if(snapshotTrail.length>=p.trail.length)p.trail=snapshotTrail;
+  else if(!p.trail.length)p.trail=snapshotTrail;
+  p.isRemote=!local;nextPlayers.push(p);
+ }
+ players=nextPlayers;
  player=players.find(p=>p.id===onlineSlot)||null;
  if(!player){sendPacket({type:'request_snapshot'});return false;}
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
- if(!cameraReady){cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;}terrainDirty=true;updateScore();
+ if(!cameraReady){cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;}
+ if(!mapChanged)updateLeaderboard(Math.max(1,land.reduce((n,v)=>n+(v!==OUT),0)));
  if(!player.alive)showGameResult(false);else if(players.length>1&&!players.some(p=>p.id!==onlineSlot&&p.alive))showGameResult(true);
  return true;
 }
@@ -381,10 +396,10 @@ function connectOnline(){
     for(const data of packet.players){
      if(!data||!Number.isInteger(data.id))continue;
      const p=players&&players.find(q=>q.id===data.id);if(!p)continue;
-     if(Number.isFinite(data.x))p.x=data.x;if(Number.isFinite(data.y))p.y=data.y;
-     if(Number.isFinite(data.angle))p.angle=data.angle;if(Number.isFinite(data.targetAngle))p.targetAngle=data.targetAngle;
+     if(Number.isFinite(data.x))p.netX=data.x;if(Number.isFinite(data.y))p.netY=data.y;
+     if(Number.isFinite(data.angle))p.netAngle=data.angle;if(Number.isFinite(data.targetAngle))p.targetAngle=data.targetAngle;
      if(typeof data.alive==='boolean')p.alive=data.alive;if(typeof data.outside==='boolean')p.outside=data.outside;
-     if(Array.isArray(data.trail))p.trail=data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-70);
+     if(Array.isArray(data.trail))p.trail=data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-180);
      if(data.id===onlineSlot){player=p;if(!p.alive&&!gameFinished)showGameResult(false);}
     }
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){if(applyWorld(packet.world))requestAnimationFrame(hideLoading);}
@@ -401,7 +416,8 @@ function sendWorldSnapshot(force=false){
 function sendPlayerState(){
  if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
  const now=performance.now();if(now-lastPlayerStateAt<90)return;lastPlayerStateAt=now;
- sendPacket({type:'players_state',players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,trail:p.trail.slice(-70)}))});
+ const includeTrails=now-lastTrailStateAt>=250;if(includeTrails)lastTrailStateAt=now;
+ sendPacket({type:'players_state',players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,...(includeTrails?{trail:p.trail.slice(-180)}:{})}))});
 }
 function sendOnlineInput(angle){if(!onlineIsHost)sendPacket({type:'input',angle});}
 
@@ -1044,6 +1060,7 @@ function loop(now){
   checkForWin();
   sendWorldSnapshot();sendPlayerState();
  }
+ if(gameStarted&&!onlineIsHost&&players){for(const p of players){if(Number.isFinite(p.netX)&&Number.isFinite(p.netY)){const k=1-Math.exp(-16*dt);p.x+=(p.netX-p.x)*k;p.y+=(p.netY-p.y)*k;}if(Number.isFinite(p.netAngle))p.angle+=angleDiff(p.angle,p.netAngle)*(1-Math.exp(-12*dt));}}
  if(gameStarted&&!onlineIsHost&&player){let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;if(dx||dy){player.targetAngle=Math.atan2(dy,dx);if(now-lastNetSend>80){lastNetSend=now;sendOnlineInput(player.targetAngle);}}}
  if(gameStarted)draw();requestAnimationFrame(loop);
 }
