@@ -374,7 +374,7 @@ function connectOnline(){
     if(onlineIsHost&&players){const left=players.filter(p=>!roomRoster.some(r=>r.slot===p.id));for(const p of left){if(p.id!==onlineSlot){p.alive=false;for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;}}players=players.filter(p=>p.id===onlineSlot||roomRoster.some(r=>r.slot===p.id));terrainDirty=true;updateScore();sendWorldSnapshot(true);}
     if(packet.hostChanged){onlineIsHost=String(packet.hostId||'')===onlinePlayerId;if(onlineIsHost){setOnlineStatus('ведущий');if(pendingStart||gameStarted)reset();}}
    }else if((packet.type==='start_request'||packet.type==='restart_request')&&onlineIsHost){
-    if(packet.type==='restart_request'){const entry=roomRoster.find(r=>r.playerId===packet.playerId);if(entry)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}else if(!land){createArena();}else{ensureRosterPlayers();sendWorldSnapshot(true);}
+    if(packet.type==='restart_request'){const entry=roomRoster.find(r=>r.playerId===packet.playerId);if(entry)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}else if(!land){createArena();}else{ensureRosterPlayers();const entry=roomRoster.find(r=>r.playerId===packet.playerId),target=entry&&players.find(p=>p.id===entry.slot);if(target&&!target.alive)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
    }else if(packet.type==='players_state'&&!onlineIsHost&&Array.isArray(packet.players)){
@@ -1078,7 +1078,7 @@ document.getElementById('resultRestart').addEventListener('click',()=>{playSound
 const menu=document.getElementById('mainMenu');
 document.getElementById('resultMenu').addEventListener('click',()=>{
  playSound('click');
- gameFinished=false;pendingStart=false;
+ pendingStart=false;
  if(!land)gameStarted=false;
  document.getElementById('resultOverlay').classList.remove('show');
  hideLoading();
@@ -1141,7 +1141,7 @@ document.getElementById('playButton').addEventListener('click',()=>{
  const loading=document.getElementById('gameLoading');showLoading('Подключаемся к общей арене…');
  requestAnimationFrame(()=>{
   if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN&&onlinePlayerId){
-   if(onlineIsHost){if(!land)createArena();else{ensureRosterPlayers();sendWorldSnapshot(true);}requestAnimationFrame(hideLoading);}
+   if(onlineIsHost){if(!land)createArena();else{ensureRosterPlayers();if(player&&!player.alive)respawnPlayer(onlineSlot);else sendWorldSnapshot(true);}requestAnimationFrame(hideLoading);}
    else{sendPacket({type:'start_request'});msg.textContent='Подключаемся к текущей арене…';}
   }else{msg.textContent='Подключаемся к серверу…';setOnlineStatus('подключение…');connectOnline();}
  });
