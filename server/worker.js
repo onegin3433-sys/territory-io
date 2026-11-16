@@ -152,6 +152,14 @@ export class GameRoom extends DurableObject {
       return;
     }
 
+    if (packet.type === "start_request" || packet.type === "restart_request") {
+      const host = this.hostSocket();
+      if (host) {
+        try { host.send(JSON.stringify({ type: packet.type, playerId: sender.playerId })); } catch {}
+      }
+      return;
+    }
+
     if (packet.type === "snapshot") {
       if (sender.isHost !== true || !packet.world || typeof packet.world !== "object") return;
       const encoded = JSON.stringify(packet.world);
