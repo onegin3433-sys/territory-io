@@ -408,6 +408,7 @@ function kill(p,reason,killer=null){
   msg.textContent=killer?'Твой след пересёк соперник!':'Ты выбыл из игры!';
   // Show the defeat screen regardless of whether a rival delivered the final hit.
   showGameResult(false);
+  if(onlineIsHost)gameStarted=true;
  }else if(!killer){
   msg.textContent=(names[p.id]||'Соперник')+' выбыл из игры!';
  }
