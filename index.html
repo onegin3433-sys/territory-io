@@ -108,6 +108,12 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 (()=>{
 'use strict';
 const telegramApp=window.Telegram&&window.Telegram.WebApp;
+const telegramUser=telegramApp&&telegramApp.initDataUnsafe&&telegramApp.initDataUnsafe.user;
+const telegramDisplayName=telegramUser
+ ? [telegramUser.first_name,telegramUser.last_name].filter(Boolean).join(' ').trim().slice(0,18)
+   || (telegramUser.username||'').slice(0,18)
+ : '';
+names[1]=telegramDisplayName||'Ты';
 if(telegramApp){
  telegramApp.ready();
  telegramApp.expand();
@@ -173,7 +179,7 @@ function connectOnline(){
  connectionStarted=true;
  if(onlineRetryTimer){clearTimeout(onlineRetryTimer);onlineRetryTimer=null;}
  try{
-  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws?name='+encodeURIComponent('Игрок'));
+  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws?name='+encodeURIComponent(telegramDisplayName||'Игрок'));
   onlineSocket=socket;setOnlineStatus('подключение…');
   socket.addEventListener('open',()=>setOnlineStatus('подключено'));
   socket.addEventListener('message',event=>{
@@ -306,7 +312,7 @@ function reset(){
  for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
  seedBase(1,390*SCALE,480*SCALE,68*SCALE);
  seedBase(2,690*SCALE,285*SCALE,57*SCALE);seedBase(3,690*SCALE,680*SCALE,57*SCALE);seedBase(4,270*SCALE,700*SCALE,57*SCALE);
- const hostEntry=roomRoster.find(r=>r.playerId===onlinePlayerId)||{slot:1,name:'Игрок'};
+ const hostEntry=roomRoster.find(r=>r.playerId===onlinePlayerId)||{slot:1,name:telegramDisplayName||'Игрок'};
  onlineSlot=hostEntry.slot||1;players=[];
  for(const entry of roomRoster){
   const slot=entry.slot,spawn=spawnPoints[slot];if(!spawn)continue;
