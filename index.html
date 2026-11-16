@@ -337,6 +337,8 @@ function ensureRosterPlayers(){
   if(existing){
    existing.name=entry.name||existing.name;existing.isBot=false;
    existing.isHuman=slot===onlineSlot;existing.isRemote=slot!==onlineSlot;
+   existing.speed=(existing.isHuman?130:95)*SCALE;
+   existing.alive=true;existing.outside=false;existing.trail=[];existing.homeTarget=null;
    continue;
   }
   const spawn=findFreeSpawn(slot),p=makePlayer(slot,spawn.x,spawn.y,spawn.angle,false);
@@ -539,9 +541,11 @@ function findFreeSpawn(slot){
  for(const c of candidates){
   if(Math.hypot(c.x-CX,c.y-CY)>R-radius-12*SCALE)continue;
   let free=true;
-  for(let a=0;a<12&&free;a++){
-   const x=Math.round((c.x+Math.cos(a*Math.PI/6)*radius)/S),y=Math.round((c.y+Math.sin(a*Math.PI/6)*radius)/S);
-   if(x<0||y<0||x>=C||y>=C||land[y*C+x]!==EMPTY)free=false;
+  const gx=Math.round(c.x/S),gy=Math.round(c.y/S),gr=Math.ceil(radius/S);
+  for(let y=Math.max(0,gy-gr);y<=Math.min(C-1,gy+gr)&&free;y++){
+   for(let x=Math.max(0,gx-gr);x<=Math.min(C-1,gx+gr);x++){
+    if(Math.hypot((x-gx)*S,(y-gy)*S)<=radius&&land[y*C+x]!==EMPTY){free=false;break;}
+   }
   }
   if(free)return c;
  }
