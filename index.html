@@ -173,7 +173,7 @@ function applyWorld(world){
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
- if(!player.alive)showGameResult(false);else if(roomRoster.length>1&&players.filter(p=>p.alive).length===1)showGameResult(true);
+ if(!player.alive)showGameResult(false);else if(players.length>1&&!players.some(p=>p.id!==onlineSlot&&p.alive))showGameResult(true);
 }
 function ensureRosterPlayers(){
  if(!onlineIsHost||!land)return;
@@ -423,7 +423,11 @@ function showGameResult(won){
  if(won)playSound('eliminate');else playSound('hit');
 }
 function checkForWin(){
- if(!gameFinished&&onlineIsHost&&player&&player.alive&&roomRoster.length>1&&players.filter(p=>p.alive).length===1)showGameResult(true);
+ // The host owns the simulation. A match ends when the local player is
+ // the only survivor, whether the opponents were bots or connected users.
+ if(!gameFinished&&gameStarted&&onlineIsHost&&player&&player.alive&&players.length>1&&!players.some(p=>p.id!==player.id&&p.alive)){
+  showGameResult(true);
+ }
 }
 function kill(p,reason,killer=null){
  if(!p.alive)return;
@@ -760,7 +764,11 @@ let last=0,performanceNowDelta=16.67;
 function loop(now){
  const dt=Math.min((now-last)/1000||0,0.035);
  performanceNowDelta=now-last||16.67;last=now;frame+=dt*60;
- if(gameStarted&&onlineIsHost){for(const p of players)moveOne(p,dt);sendWorldSnapshot();}
+ if(gameStarted&&onlineIsHost){
+  for(const p of players)moveOne(p,dt);
+  checkForWin();
+  sendWorldSnapshot();
+ }
  if(gameStarted&&!onlineIsHost&&player){let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;if(dx||dy){player.targetAngle=Math.atan2(dy,dx);if(now-lastNetSend>80){lastNetSend=now;sendOnlineInput(player.targetAngle);}}}
  if(gameStarted)draw();requestAnimationFrame(loop);
 }
