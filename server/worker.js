@@ -82,7 +82,6 @@ export class GameRoom extends DurableObject {
       return new Response("Room is full", { status: 503 });
     }
     const playerId = String(this.nextId++);
-    const url = new URL(request.url);
     const requestedName = (url.searchParams.get("name") || "Игрок").trim();
     const name = Array.from(requestedName).slice(0, MAX_NAME_LENGTH).join("") || "Игрок";
     const uid = (url.searchParams.get("uid") || playerId).slice(0,64);
