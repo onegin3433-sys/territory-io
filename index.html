@@ -20,7 +20,20 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 #minimap{top:76px}
 @media(max-width:370px){.brand{top:45px;padding:4px 7px;gap:5px}.brand-mark{width:20px;height:20px}.brand-name{font-size:10px}#minimap{top:72px}}
 #minimap{position:absolute;z-index:3;right:10px;top:58px;width:clamp(104px,27vw,150px);height:auto;aspect-ratio:1;border:2px solid #c5d5e9;border-radius:12px;background:#0b1422dd;box-shadow:0 3px 14px #0009;pointer-events:none}
-</style>
+
+.menu{position:absolute;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at 50% 20%,#263b55 0,#0b1422 68%);overflow:auto}
+.menu-panel{width:min(100%,440px);max-height:100%;overflow:auto;padding:22px;border:1px solid #60748d;border-radius:22px;background:#101e31f2;box-shadow:0 18px 60px #0009;text-align:center}
+.menu h1{margin:0;color:#fff;font-size:27px;letter-spacing:.08em}.menu-sub{margin:5px 0 20px;color:#a9bdd3;font-size:12px}
+.menu-section{margin:16px 0 8px;text-align:left;font-weight:800;font-size:13px;color:#e8f1fb}
+.skin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.skin-choice{padding:12px 5px;border:1px solid #526982;border-radius:14px;background:#192b41;color:#eef4ff;min-height:86px}
+.skin-choice .skin-icon{display:block;font-size:30px;margin-bottom:5px}.skin-choice.selected{border:2px solid #4ce0a5;background:#1c3b3a}
+.color-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:8px 0 14px}
+.color-choice{width:34px;height:34px;padding:0;border-radius:50%;border:3px solid #dce8f5}
+.color-choice.selected{outline:3px solid #fff;outline-offset:3px}
+#playButton{width:100%;margin-top:12px;padding:14px;border:0;border-radius:14px;background:linear-gradient(135deg,#2ed28f,#159b77);color:#06251c;font-size:17px;font-weight:900}
+.hud,.brand,#minimap{display:none}
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body><main class="app">
@@ -35,6 +48,24 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 </svg>
 <div><div class="brand-name">TERRITORY WARS</div><div class="brand-sub">ВОЙНЫ ТЕРРИТОРИЙ</div></div>
 </div>
+<div class="menu" id="mainMenu"><div class="menu-panel">
+<h1>TERRITORY WARS</h1><div class="menu-sub">ВЫБЕРИ СВОЕГО ИГРОКА И ВЫХОДИ НА АРЕНУ</div>
+<div class="menu-section">Выбери скин</div>
+<div class="skin-grid">
+<button class="skin-choice selected" data-skin="explorer"><span class="skin-icon">🐱</span>Исследователь</button>
+<button class="skin-choice" data-skin="robot"><span class="skin-icon">🤖</span>Робот</button>
+<button class="skin-choice" data-skin="fox"><span class="skin-icon">🦊</span>Лис</button>
+</div>
+<div class="menu-section">Цвет территории</div>
+<div class="color-row">
+<button class="color-choice selected" data-color="#2ed28f" style="background:#2ed28f" aria-label="Зелёный"></button>
+<button class="color-choice" data-color="#38a9ff" style="background:#38a9ff" aria-label="Синий"></button>
+<button class="color-choice" data-color="#ff5874" style="background:#ff5874" aria-label="Розовый"></button>
+<button class="color-choice" data-color="#ffc04d" style="background:#ffc04d" aria-label="Жёлтый"></button>
+<button class="color-choice" data-color="#a78bfa" style="background:#a78bfa" aria-label="Фиолетовый"></button>
+</div>
+<button id="playButton">ИГРАТЬ</button>
+</div></div>
 <div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><button id="restart">Заново</button></div>
 <canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
 <canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
@@ -58,7 +89,8 @@ let VIEW_W=960,VIEW_H=960,cameraX=0,cameraY=0,cameraReady=false,terrainDirty=tru
 function resizeView(){const h=window.innerHeight;VIEW_H=960;VIEW_W=Math.max(320,Math.round(window.innerWidth/h*VIEW_H));canvas.width=VIEW_W;canvas.height=VIEW_H;}
 window.addEventListener('resize',resizeView);resizeView();
 const SCALE=3,W=960*SCALE,C=240,S=W/C,CX=W/2,CY=W/2,R=458*SCALE,EMPTY=0,OUT=255;
-const COLORS={1:'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
+const COLORS={1:localStorage.getItem('territoryPlayerColor')||'#2ed28f',2:'#ff5874',3:'#ffc04d',4:'#a78bfa'};
+let selectedSkin=localStorage.getItem('territorySkin')||'explorer',gameStarted=false;
 const names={1:'Ты',2:'Красный',3:'Жёлтый',4:'Фиолетовый'};
 const mapCanvas=document.createElement('canvas');mapCanvas.width=C;mapCanvas.height=C;
 const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
@@ -430,7 +462,9 @@ function draw(){
  }
  for(const p of players){
   if(!p.alive)continue;
-  if(p.isHuman){
+  if(p.isHuman&&selectedSkin!=='explorer'){
+   ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.font='72px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(selectedSkin==='robot'?'🤖':'🦊',0,0);ctx.restore();
+  }else if(p.isHuman){
    // Explorer kitten: layered, shaded 3D-style character with goggles and backpack.
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
    const run=Math.sin(frame*.34),bounce=Math.sin(frame*.68)*2.2;
@@ -540,8 +574,7 @@ let last=0,performanceNowDelta=16.67;
 function loop(now){
  const dt=Math.min((now-last)/1000||0,0.035);
  performanceNowDelta=now-last||16.67;last=now;frame+=dt*60;
- for(const p of players)moveOne(p,dt);
- sendOnlineState(now);
+ if(gameStarted){for(const p of players)moveOne(p,dt);sendOnlineState(now);}
  for(const [id,p] of remotePlayers){if(now-p.seen>10000)remotePlayers.delete(id);}
  draw();requestAnimationFrame(loop);
 }
@@ -570,8 +603,31 @@ canvas.addEventListener('pointerup',endTouch);
 canvas.addEventListener('pointercancel',endTouch);
 document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){keys[e.key]=true;e.preventDefault();}});
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
+
 document.getElementById('restart').addEventListener('click',reset);
-reset();connectOnline();requestAnimationFrame(loop);
+const menu=document.getElementById('mainMenu');
+document.querySelectorAll('.skin-choice').forEach(button=>{
+ if(button.dataset.skin===selectedSkin)button.classList.add('selected');
+ button.addEventListener('click',()=>{
+  selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);
+  document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));
+ });
+});
+document.querySelectorAll('.color-choice').forEach(button=>{
+ if(button.dataset.color===COLORS[1])button.classList.add('selected');
+ button.addEventListener('click',()=>{
+  COLORS[1]=button.dataset.color;localStorage.setItem('territoryPlayerColor',COLORS[1]);
+  document.querySelectorAll('.color-choice').forEach(b=>b.classList.toggle('selected',b===button));
+ });
+});
+document.getElementById('playButton').addEventListener('click',()=>{
+ gameStarted=true;menu.style.display='none';
+ document.querySelector('.hud').style.display='flex';
+ document.querySelector('.brand').style.display='flex';
+ document.getElementById('minimap').style.display='block';
+ reset();
+});
+connectOnline();requestAnimationFrame(loop);
 })();
 </script>
 </body></html>
