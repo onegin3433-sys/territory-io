@@ -361,7 +361,7 @@ function connectOnline(){
     onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
     if(packet.snapshot){if(applyWorld(packet.snapshot))requestAnimationFrame(hideLoading);}
-    else if(onlineIsHost&&pendingStart){reset();requestAnimationFrame(hideLoading);}
+    else if(onlineIsHost&&pendingStart){if(!land)createArena();else{ensureRosterPlayers();sendWorldSnapshot(true);}requestAnimationFrame(hideLoading);}
     else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
    }else if(packet.type==='player_joined'){
     roomRoster=Array.isArray(packet.players)?packet.players:roomRoster;onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
@@ -1130,7 +1130,7 @@ document.querySelectorAll('.color-choice').forEach(button=>{
 });
 document.getElementById('playButton').addEventListener('click',()=>{
  unlockAudio().then(ready=>{if(ready&&soundEnabled)playSound('start');});
- pendingStart=true;gameStarted=false;menu.style.display='none';
+ pendingStart=true;if(!land)gameStarted=false;menu.style.display='none';
  document.querySelector('.hud').style.display='flex';
  document.querySelector('.brand').style.display='flex';
  document.getElementById('minimap').style.display='block';
