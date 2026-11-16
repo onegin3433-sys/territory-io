@@ -31,6 +31,14 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 .menu-panel{width:min(100%,440px);max-height:100%;overflow:auto;padding:22px;border:1px solid #60748d;border-radius:22px;background:#101e31f2;box-shadow:0 18px 60px #0009;text-align:center}
 .menu h1{margin:0;color:#fff;font-size:27px;letter-spacing:.08em}.menu-sub{margin:5px 0 20px;color:#a9bdd3;font-size:12px}
 .menu-section{margin:16px 0 8px;text-align:left;font-weight:800;font-size:13px;color:#e8f1fb}
+ .menu-secondary{width:100%;margin-top:9px;padding:11px;border:1px solid #536985;border-radius:12px;background:#1a2d44;color:#eaf3ff;font-weight:850}
+ .ranking-overlay{position:absolute;z-index:30;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:#050b16df;backdrop-filter:blur(7px)}
+ .ranking-overlay.show{display:flex}.ranking-card{width:min(100%,430px);max-height:88%;overflow:auto;padding:18px;border:1px solid #607b98;border-radius:20px;background:#101e31;color:#eef4ff}
+ .ranking-title{font-size:21px;font-weight:950;margin:0 0 12px}.ranking-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+ .ranking-tab{padding:10px 4px;background:#1a2d44}.ranking-tab.active{background:#23664f;border-color:#4ce0a5}
+ .ranking-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 2px;border-bottom:1px solid #ffffff18;font-size:13px}
+ .ranking-row:first-child .ranking-place{color:#ffdc78}.ranking-player{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
+ .ranking-meta{font-size:11px;color:#9fb5cc;margin-top:3px}.ranking-score{text-align:right;font-weight:900;color:#9fffd8}.ranking-close{width:100%;margin-top:14px;padding:12px}
 .skin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .skin-choice{padding:12px 5px;border:1px solid #526982;border-radius:14px;background:#192b41;color:#eef4ff;min-height:86px}
 .skin-choice .skin-icon{display:block;font-size:30px;margin-bottom:5px}.skin-choice.selected{border:2px solid #4ce0a5;background:#1c3b3a}
@@ -84,9 +92,10 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <button class="color-choice" data-color="#ffc04d" style="background:#ffc04d" aria-label="Жёлтый"></button>
 <button class="color-choice" data-color="#a78bfa" style="background:#a78bfa" aria-label="Фиолетовый"></button>
 </div>
-<button id="playButton">ИГРАТЬ</button>
+<button id="playButton">ИГРАТЬ</button><button id="openRanking" class="menu-secondary">🏆 ТОП ИГРОКОВ</button>
 </div></div>
-<div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><div style="display:flex;gap:5px;pointer-events:auto"><button id="soundToggle" aria-label="Включить или выключить звук">🔊 Звук</button><button id="restart">Заново</button></div></div>
+<div class="ranking-overlay" id="rankingOverlay"><div class="ranking-card"><h2 class="ranking-title">🏆 ТОП ИГРОКОВ</h2><div class="ranking-tabs"><button class="ranking-tab active" data-period="all">Всё время</button><button class="ranking-tab" data-period="month">Месяц</button><button class="ranking-tab" data-period="week">Неделя</button></div><div id="rankingRows" style="margin-top:10px"><div class="ranking-meta">Загружаем рейтинг…</div></div><button class="ranking-close" id="closeRanking">Закрыть</button></div></div>
+ <div class="hud"><div class="stats"><div class="pill">Территория <b id="score">0%</b></div><div class="pill">Рекорд <b id="best">0%</b></div><div class="pill">Онлайн <b id="onlineStatus">подключение…</b></div></div><div style="display:flex;gap:5px;pointer-events:auto"><button id="soundToggle" aria-label="Включить или выключить звук">🔊 Звук</button><button id="restart">Заново</button></div></div>
 <div id="gameLoading" class="game-loading" aria-live="polite"><div class="loading-spinner"></div><div class="loading-title">ЗАГРУЖАЕМ АРЕНУ</div><div class="loading-subtitle">Подготавливаем карту и игроков…</div></div>
 <canvas id="game" width="960" height="960" aria-label="Игровое поле"></canvas>
 <canvas id="minimap" width="240" height="240" aria-label="Полная карта арены"></canvas>
@@ -136,7 +145,7 @@ const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,initialTerrain=true,best=Number(localStorage.getItem('territoryBest')||0),touchActive=false,touchPointer=null,touchLast=null,keys={};
-let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,onlineRetryTimer=null,roomRoster=[],pendingStart=false,connectionStarted=false;
+let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,onlineRetryTimer=null,roomRoster=[],pendingStart=false,connectionStarted=false,currentRoundId="",resultRecorded=false;
 const onlineStatusEl=document.getElementById('onlineStatus');
 const spawnPoints={1:[455*SCALE,480*SCALE,0],2:[690*SCALE,285*SCALE,2.5],3:[690*SCALE,680*SCALE,-2],4:[270*SCALE,700*SCALE,-.2]};
 function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text;}
@@ -179,7 +188,7 @@ function connectOnline(){
  connectionStarted=true;
  if(onlineRetryTimer){clearTimeout(onlineRetryTimer);onlineRetryTimer=null;}
  try{
-  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws?name='+encodeURIComponent(telegramDisplayName||'Игрок'));
+  const socket=new WebSocket('wss://territory-wars-server.onegin343.workers.dev/ws?name='+encodeURIComponent(telegramDisplayName||'Игрок')+'&uid='+encodeURIComponent(telegramUserId||''));
   onlineSocket=socket;setOnlineStatus('подключение…');
   socket.addEventListener('open',()=>setOnlineStatus('подключено'));
   socket.addEventListener('message',event=>{
@@ -305,6 +314,7 @@ function makePlayer(id,x,y,angle,isHuman=false){
  return{id,name:names[id]||('Игрок '+id),x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function reset(){
+ currentRoundId=Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);resultRecorded=false;
  gameFinished=false;gameStarted=true;pendingStart=false;document.getElementById('resultOverlay').classList.remove('show');
  const leaderboard=document.getElementById('leaderboard');if(leaderboard)leaderboard.style.display='block';
  if(!onlineIsHost){gameStarted=false;sendPacket({type:'request_snapshot'});msg.textContent='Ожидаем ведущего комнаты…';return;}
@@ -393,6 +403,12 @@ function keepSingleTerritory(id,seed){
 }
 function showGameResult(won){
  if(gameFinished)return;
+ if(!resultRecorded&&onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){
+  resultRecorded=true;
+  const validCount=land?land.reduce((n,v)=>n+(v!==OUT),0):1;
+  const score=land&&validCount?Math.round(countOwned(onlineSlot)/validCount*100):0;
+  sendPacket({type:"match_result",eventId:(telegramUserId||onlinePlayerId||"guest")+":"+currentRoundId,won:!!won,score});
+ }
  gameFinished=true;gameStarted=false;touchActive=false;touchPointer=null;touchLast=null;
  const overlay=document.getElementById('resultOverlay'),title=document.getElementById('resultTitle');
  title.textContent=won?'ПОБЕДА!':'ИГРА ОКОНЧЕНА';
@@ -773,6 +789,23 @@ document.addEventListener('keyup',e=>{keys[e.key]=false;});
 document.getElementById('restart').addEventListener('click',()=>{playSound('click');reset();});
 document.getElementById('resultRestart').addEventListener('click',()=>{playSound('click');reset();});
 const menu=document.getElementById('mainMenu');
+ const rankingOverlay=document.getElementById("rankingOverlay"),rankingRows=document.getElementById("rankingRows");
+ function escapeRanking(value){return String(value||"Игрок").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
+ async function loadRanking(period){
+  document.querySelectorAll(".ranking-tab").forEach(b=>b.classList.toggle("active",b.dataset.period===period));
+  rankingRows.innerHTML='<div class="ranking-meta">Загружаем рейтинг…</div>';
+  try{
+   const response=await fetch("https://territory-wars-server.onegin343.workers.dev/leaderboard?period="+period,{cache:"no-store"});
+   if(!response.ok)throw new Error("HTTP "+response.status);
+   const data=await response.json(),rows=Array.isArray(data.players)?data.players:[];
+   rankingRows.innerHTML=rows.length?rows.map((p,i)=>'<div class="ranking-row"><div class="ranking-place">'+(i+1)+'.</div><div><div class="ranking-player">'+escapeRanking(p.name)+'</div><div class="ranking-meta">Побед: '+p.wins+' · Игр: '+p.games+'</div></div><div class="ranking-score">'+p.best+'%</div></div>').join(''):'<div class="ranking-meta" style="padding:18px 2px;text-align:center">Пока нет результатов. Сыграй первую партию!</div>';
+  }catch(e){rankingRows.innerHTML='<div class="ranking-meta" style="padding:18px 2px">Не удалось загрузить рейтинг. Попробуй позже.</div>';}
+ }
+ document.getElementById("openRanking").addEventListener("click",()=>{rankingOverlay.classList.add("show");loadRanking("all");});
+ document.getElementById("closeRanking").addEventListener("click",()=>rankingOverlay.classList.remove("show"));
+ rankingOverlay.addEventListener("click",e=>{if(e.target===rankingOverlay)rankingOverlay.classList.remove("show");});
+ document.querySelectorAll(".ranking-tab").forEach(b=>b.addEventListener("click",()=>loadRanking(b.dataset.period)));
+
 document.querySelectorAll('.skin-choice').forEach(button=>{
  if(button.dataset.skin===selectedSkin)button.classList.add('selected');
  button.addEventListener('click',()=>{
