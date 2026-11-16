@@ -100,6 +100,9 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <button class="skin-choice" data-skin="king"><span class="skin-icon">👑</span>Король</button>
 <button class="skin-choice" data-skin="alien"><span class="skin-icon">👽</span>Пришелец</button>
 <button class="skin-choice" data-skin="tiger"><span class="skin-icon">🐯</span>Тигр</button>
+<button class="skin-choice" data-skin="unicorn"><span class="skin-icon">🦄</span>Единорог</button>
+<button class="skin-choice" data-skin="alien"><span class="skin-icon">👽</span>Пришелец</button>
+<button class="skin-choice" data-skin="tiger"><span class="skin-icon">🐯</span>Тигр</button>
 <button class="skin-choice" data-skin="penguin"><span class="skin-icon">🐧</span>Пингвин</button>
 <button class="skin-choice" data-skin="unicorn"><span class="skin-icon">🦄</span>Единорог</button>
 <button class="skin-choice" data-skin="wolf"><span class="skin-icon">🐺</span>Волк</button>
@@ -121,6 +124,11 @@ button{pointer-events:auto;border:1px solid #536985;border-radius:10px;padding:8
 <button class="color-choice" data-color="#b7e34b" style="background:#b7e34b" aria-label="Лаймовый"></button>
 <button class="color-choice" data-color="#8b5cf6" style="background:#8b5cf6" aria-label="Аметист"></button>
 <button class="color-choice" data-color="#8b5a3c" style="background:#8b5a3c" aria-label="Коричневый"></button>
+<button class="color-choice" data-color="#f43f5e" style="background:#f43f5e" aria-label="Алый"></button>
+<button class="color-choice" data-color="#a3e635" style="background:#a3e635" aria-label="Яркий лайм"></button>
+<button class="color-choice" data-color="#14b8a6" style="background:#14b8a6" aria-label="Морской"></button>
+<button class="color-choice" data-color="#facc15" style="background:#facc15" aria-label="Лимонный"></button>
+<button class="color-choice" data-color="#64748b" style="background:#64748b" aria-label="Стальной"></button>
 <button class="color-choice" data-color="#e879f9" style="background:#e879f9" aria-label="Орхидея"></button>
 <button class="color-choice" data-color="#14b8a6" style="background:#14b8a6" aria-label="Морская волна"></button>
 <button class="color-choice" data-color="#ef4444" style="background:#ef4444" aria-label="Красный"></button>
@@ -777,6 +785,15 @@ function draw(){
   }else{
    ctx.beginPath();ctx.arc(p.x,p.y,30,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();ctx.lineWidth=9;ctx.strokeStyle='#f4f7ff';ctx.stroke();
    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+Math.cos(p.angle)*51,p.y+Math.sin(p.angle)*51);ctx.strokeStyle='#102033';ctx.lineWidth=9;ctx.stroke();
+  }
+  if(p.isHuman){
+   const pulse=1+Math.sin(frame*.12)*.07;
+   ctx.save();ctx.translate(p.x,p.y);
+   ctx.beginPath();ctx.arc(0,0,51*pulse,0,Math.PI*2);ctx.strokeStyle=COLORS[p.id];ctx.globalAlpha=.8;ctx.lineWidth=4;ctx.stroke();
+   ctx.globalAlpha=1;ctx.font='bold 25px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+   ctx.shadowColor='#ffdf70';ctx.shadowBlur=12;ctx.fillText('👑',0,-67+Math.sin(frame*.16)*3);ctx.shadowBlur=0;
+   ctx.font='900 18px system-ui';ctx.lineWidth=5;ctx.strokeStyle='#102033';ctx.strokeText('ТЫ',0,76);ctx.fillStyle='#fff';ctx.fillText('ТЫ',0,76);
+   ctx.restore();
   }
  }
  ctx.restore();
