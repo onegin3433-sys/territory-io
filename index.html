@@ -151,6 +151,7 @@ function applyWorld(world){
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
  cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
+ if(!player.alive)showGameResult(false);else if(roomRoster.length>1&&players.filter(p=>p.alive).length===1)showGameResult(true);
 }
 function ensureRosterPlayers(){
  if(!onlineIsHost||!land)return;
@@ -382,7 +383,7 @@ function showGameResult(won){
  if(won)playSound('eliminate');else playSound('hit');
 }
 function checkForWin(){
- if(!gameFinished&&player&&player.alive&&players&&players.filter(p=>!p.isHuman).every(p=>!p.alive))showGameResult(true);
+ if(!gameFinished&&onlineIsHost&&player&&player.alive&&roomRoster.length>1&&players.filter(p=>p.alive).length===1)showGameResult(true);
 }
 function kill(p,reason,killer=null){
  if(!p.alive)return;
