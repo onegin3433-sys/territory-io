@@ -282,7 +282,7 @@ const mctx=mapCanvas.getContext('2d',{willReadFrequently:true});
 const terrainCanvas=document.createElement('canvas');terrainCanvas.width=W;terrainCanvas.height=W;
 const tctx=terrainCanvas.getContext('2d');
 let land,players,player,frame=0,initialTerrain=true,touchActive=false,touchPointer=null,touchLast=null,keys={};
-let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,onlineRetryTimer=null,loadingTimer=null,roomRoster=[],pendingStart=false,connectionStarted=false,currentRoundId="",resultRecorded=false;
+let onlineSocket=null,onlinePlayerId=null,onlineSlot=1,onlineIsHost=false,onlineCount=1,lastNetSend=0,lastSnapshotAt=0,lastPlayerStateAt=0,onlineRetryTimer=null,loadingTimer=null,roomRoster=[],pendingStart=false,connectionStarted=false,currentRoundId="",resultRecorded=false;
 const onlineStatusEl=document.getElementById('onlineStatus');
 const spawnPoints={1:[455*SCALE,480*SCALE,0],2:[690*SCALE,285*SCALE,2.5],3:[690*SCALE,680*SCALE,-2],4:[270*SCALE,700*SCALE,-.2]};
 function setOnlineStatus(text){if(onlineStatusEl)onlineStatusEl.textContent=text;}
@@ -325,7 +325,7 @@ function applyWorld(world){
  if(!player){sendPacket({type:'request_snapshot'});return false;}
  COLORS[onlineSlot]=localStorage.getItem('territoryPlayerColor')||COLORS[onlineSlot];
  gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');
- cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();
+ if(!cameraReady){cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;}terrainDirty=true;updateScore();
  if(!player.alive)showGameResult(false);else if(players.length>1&&!players.some(p=>p.id!==onlineSlot&&p.alive))showGameResult(true);
  return true;
 }
@@ -374,6 +374,16 @@ function connectOnline(){
     if(packet.type==='restart_request'){const entry=roomRoster.find(r=>r.playerId===packet.playerId);if(entry)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}else if(!land){createArena();}else{ensureRosterPlayers();sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
+   }else if(packet.type==='players_state'&&!onlineIsHost&&Array.isArray(packet.players)){
+    for(const data of packet.players){
+     if(!data||!Number.isInteger(data.id))continue;
+     const p=players&&players.find(q=>q.id===data.id);if(!p)continue;
+     if(Number.isFinite(data.x))p.x=data.x;if(Number.isFinite(data.y))p.y=data.y;
+     if(Number.isFinite(data.angle))p.angle=data.angle;if(Number.isFinite(data.targetAngle))p.targetAngle=data.targetAngle;
+     if(typeof data.alive==='boolean')p.alive=data.alive;if(typeof data.outside==='boolean')p.outside=data.outside;
+     if(Array.isArray(data.trail))p.trail=data.trail.filter(q=>Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-70);
+     if(data.id===onlineSlot){player=p;if(!p.alive&&!gameFinished)showGameResult(false);}
+    }
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){if(applyWorld(packet.world))requestAnimationFrame(hideLoading);}
   });
   socket.addEventListener('close',()=>{if(onlineSocket===socket){onlineSocket=null;onlinePlayerId=null;onlineIsHost=false;setOnlineStatus('нет связи');onlineRetryTimer=setTimeout(connectOnline,3000);}});
@@ -382,8 +392,13 @@ function connectOnline(){
 }
 function sendWorldSnapshot(force=false){
  if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
- const now=performance.now();if(!force&&now-lastSnapshotAt<320)return;lastSnapshotAt=now;
+ const now=performance.now();if(!force&&now-lastSnapshotAt<750)return;lastSnapshotAt=now;
  sendPacket({type:'snapshot',world:worldSnapshot()});
+}
+function sendPlayerState(){
+ if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
+ const now=performance.now();if(now-lastPlayerStateAt<90)return;lastPlayerStateAt=now;
+ sendPacket({type:'players_state',players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,trail:p.trail.slice(-70)}))});
 }
 function sendOnlineInput(angle){if(!onlineIsHost)sendPacket({type:'input',angle});}
 
@@ -1024,7 +1039,7 @@ function loop(now){
  if(gameStarted&&onlineIsHost){
   for(const p of players)moveOne(p,dt);
   checkForWin();
-  sendWorldSnapshot();
+  sendWorldSnapshot();sendPlayerState();
  }
  if(gameStarted&&!onlineIsHost&&player){let dx=0,dy=0;if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;if(dx||dy){player.targetAngle=Math.atan2(dy,dx);if(now-lastNetSend>80){lastNetSend=now;sendOnlineInput(player.targetAngle);}}}
  if(gameStarted)draw();requestAnimationFrame(loop);
