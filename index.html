@@ -365,7 +365,7 @@ function connectOnline(){
     if(onlineIsHost&&players){const left=players.filter(p=>!roomRoster.some(r=>r.slot===p.id));for(const p of left){if(p.id!==onlineSlot){p.alive=false;for(let i=0;i<land.length;i++)if(land[i]===p.id)land[i]=EMPTY;}}players=players.filter(p=>p.id===onlineSlot||roomRoster.some(r=>r.slot===p.id));terrainDirty=true;updateScore();sendWorldSnapshot(true);}
     if(packet.hostChanged){onlineIsHost=String(packet.hostId||'')===onlinePlayerId;if(onlineIsHost){setOnlineStatus('ведущий');if(pendingStart||gameStarted)reset();}}
    }else if((packet.type==='start_request'||packet.type==='restart_request')&&onlineIsHost){
-    if(packet.type==='restart_request'||!gameStarted||gameFinished||!land){reset();}else{sendWorldSnapshot(true);}
+    if(packet.type==='restart_request'){const entry=roomRoster.find(r=>r.playerId===packet.playerId);if(entry)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}else if(!land){createArena();}else{ensureRosterPlayers();sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
    }else if(packet.type==='world_snapshot'&&!onlineIsHost){if(applyWorld(packet.world))requestAnimationFrame(hideLoading);}
@@ -493,11 +493,11 @@ function capture(id,path){
 function makePlayer(id,x,y,angle,isHuman=false){
  return{id,name:names[id]||('Игрок '+id),x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
-function reset(){
+function createArena(){
  currentRoundId=Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);resultRecorded=false;
  gameFinished=false;gameStarted=true;pendingStart=false;document.getElementById('resultOverlay').classList.remove('show');
  const leaderboard=document.getElementById('leaderboard');if(leaderboard)leaderboard.style.display='block';
- if(!onlineIsHost){gameStarted=false;showLoading('Просим ведущего перезапустить общую арену…');sendPacket({type:'restart_request'});msg.textContent='Ожидаем перезапуск от ведущего комнаты…';return;}
+
  land=new Uint8Array(C*C);land.fill(OUT);
  for(let y=0;y<C;y++)for(let x=0;x<C;x++)if(valid(x,y))land[y*C+x]=EMPTY;
  seedBase(1,390*SCALE,480*SCALE,68*SCALE);
@@ -516,6 +516,52 @@ function reset(){
  }
  player=players.find(p=>p.id===onlineSlot)||players[0];
  frame=0;initialTerrain=true;cameraX=player.x-VIEW_W/2;cameraY=player.y-VIEW_H/2;cameraReady=true;terrainDirty=true;updateScore();msg.textContent='Общая арена запущена!';sendWorldSnapshot(true);draw();
+}
+function findFreeSpawn(slot){
+ const base=spawnPoints[slot]||spawnPoints[1],radius=52*SCALE;
+ const candidates=[];
+ for(let ring=0;ring<4;ring++){
+  const distance=ring===0?0:(70+ring*65)*SCALE;
+  const count=ring===0?1:24;
+  for(let k=0;k<count;k++){
+   const a=2*Math.PI*k/count;
+   candidates.push({x:base[0]+Math.cos(a)*distance,y:base[1]+Math.sin(a)*distance,angle:base[2]});
+  }
+ }
+ for(let k=0;k<48;k++){
+  const a=2*Math.PI*k/48;
+  candidates.push({x:CX+Math.cos(a)*R*.68,y:CY+Math.sin(a)*R*.68,angle:a+Math.PI});
+ }
+ for(const c of candidates){
+  if(Math.hypot(c.x-CX,c.y-CY)>R-radius-12*SCALE)continue;
+  let free=true;
+  for(let a=0;a<12&&free;a++){
+   const x=Math.round((c.x+Math.cos(a*Math.PI/6)*radius)/S),y=Math.round((c.y+Math.sin(a*Math.PI/6)*radius)/S);
+   if(x<0||y<0||x>=C||y>=C||land[y*C+x]!==EMPTY)free=false;
+  }
+  if(free)return c;
+ }
+ return {x:base[0],y:base[1],angle:base[2]};
+}
+function respawnPlayer(slot){
+ if(!onlineIsHost||!land||!Number.isInteger(slot)||slot<1||slot>4)return;
+ const entry=roomRoster.find(r=>r.slot===slot);
+ let p=players.find(q=>q.id===slot);
+ if(!p){const spawn=spawnPoints[slot];p=makePlayer(slot,spawn[0],spawn[1],spawn[2],slot===onlineSlot);players.push(p);}
+ for(let i=0;i<land.length;i++)if(land[i]===slot)land[i]=EMPTY;
+ const spawn=findFreeSpawn(slot);
+ seedBase(slot,spawn.x,spawn.y,48*SCALE);
+ p.x=spawn.x;p.y=spawn.y;p.angle=spawn.angle;p.targetAngle=spawn.angle;
+ p.alive=true;p.outside=false;p.trail=[];p.homeTarget=null;p.turn=0;p.think=.3;
+ p.name=entry?.name||p.name||('Игрок '+slot);p.isBot=false;
+ p.isHuman=slot===onlineSlot;p.isRemote=slot!==onlineSlot;
+ if(slot===onlineSlot){player=p;gameFinished=false;document.getElementById('resultOverlay').classList.remove('show');cameraX=p.x-VIEW_W/2;cameraY=p.y-VIEW_H/2;cameraReady=true;}
+ gameStarted=true;terrainDirty=true;updateScore();msg.textContent='Ты вернулся на общую арену!';sendWorldSnapshot(true);draw();
+}
+function reset(){
+ if(!land){if(onlineIsHost)createArena();else{showLoading('Подключаемся к общей арене…');sendPacket({type:'start_request'});}return;}
+ if(!onlineIsHost){showLoading('Возвращаем тебя на общую арену…');msg.textContent='Ожидаем свободное место…';sendPacket({type:'restart_request'});return;}
+ respawnPlayer(onlineSlot);
 }
 function angleDiff(a,b){return Math.atan2(Math.sin(b-a),Math.cos(b-a));}
 function steer(p,dt){
@@ -589,7 +635,7 @@ function showGameResult(won){
   const score=land&&validCount?Math.round(countOwned(onlineSlot)/validCount*100):0;
   sendPacket({type:"match_result",eventId:(telegramUserId||onlinePlayerId||"guest")+":"+currentRoundId,won:!!won,score});
  }
- gameFinished=true;gameStarted=false;touchActive=false;touchPointer=null;touchLast=null;
+ gameFinished=true;touchActive=false;touchPointer=null;touchLast=null;
  const overlay=document.getElementById('resultOverlay'),title=document.getElementById('resultTitle');
  title.textContent=won?'ПОБЕДА!':'ИГРА ОКОНЧЕНА';
  title.className='result-title '+(won?'win':'lose');
@@ -1068,8 +1114,8 @@ document.getElementById('playButton').addEventListener('click',()=>{
  const loading=document.getElementById('gameLoading');showLoading('Подключаемся к общей арене…');
  requestAnimationFrame(()=>{
   if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN&&onlinePlayerId){
-   if(onlineIsHost){reset();requestAnimationFrame(hideLoading);}
-   else{sendPacket({type:'start_request'});msg.textContent='Ожидаем ведущего комнаты…';}
+   if(onlineIsHost){if(!land)createArena();else{ensureRosterPlayers();sendWorldSnapshot(true);}requestAnimationFrame(hideLoading);}
+   else{sendPacket({type:'start_request'});msg.textContent='Подключаемся к текущей арене…';}
   }else{msg.textContent='Подключаемся к серверу…';setOnlineStatus('подключение…');connectOnline();}
  });
 });
