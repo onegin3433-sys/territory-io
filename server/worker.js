@@ -1,3 +1,4 @@
+// Territory Wars Worker — deployed automatically via GitHub Actions.
 import { DurableObject } from "cloudflare:workers";
 
 const MAX_PACKET_BYTES = 128 * 1024;
