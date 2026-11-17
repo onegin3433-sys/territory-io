@@ -309,10 +309,12 @@ function hideLoading(){
 function sendPacket(packet){if(onlineSocket&&onlineSocket.readyState===WebSocket.OPEN){try{onlineSocket.send(JSON.stringify(packet));}catch{}}}
 function encodeLand(){let binary='';for(let i=0;i<land.length;i+=8192)binary+=String.fromCharCode(...land.subarray(i,Math.min(i+8192,land.length)));return btoa(binary);}
 function decodeLand(value){try{const binary=atob(value);if(binary.length!==C*C)return null;const out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;}catch{return null;}}
+const VALID_SKINS=new Set(['explorer','fox','ninja','astronaut','dragon','shark','panda','king','alien','tiger','penguin','unicorn','wolf','bee','ghost','monkey']);
+function normalizeSkin(value){return VALID_SKINS.has(value)?value:'explorer';}
 function packTrail(trail){const out=[];for(const q of trail.slice(-900))out.push(Math.round(q.x),Math.round(q.y));return out;}
 function unpackTrail(value){if(!Array.isArray(value))return[];if(value.length&&typeof value[0]==='number'){const out=[];for(let i=0;i+1<value.length;i+=2)if(Number.isFinite(value[i])&&Number.isFinite(value[i+1]))out.push({x:value[i],y:value[i+1]});return out;}return value.filter(q=>q&&Number.isFinite(q.x)&&Number.isFinite(q.y)).slice(-900);}
 function applySharedColors(colors){if(!colors||typeof colors!=='object')return;let changed=false;for(let id=1;id<=4;id++){const c=colors[id];if(typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c)&&COLORS[id]!==c){COLORS[id]=c;changed=true;}}if(changed)terrainDirty=true;}
-function worldSnapshot(){return{land:encodeLand(),initialTerrain,colors:{...COLORS},players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,trail:packTrail(p.trail)}))};}
+function worldSnapshot(){return{land:encodeLand(),initialTerrain,colors:{...COLORS},players:players.map(p=>({id:p.id,name:p.name,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,isBot:!!p.isBot,skin:normalizeSkin(p.skin),trail:packTrail(p.trail)}))};}
 function applyWorld(world){
  if(!world||typeof world.land!=='string'||!Array.isArray(world.players))return false;
  pendingStart=false;
@@ -329,6 +331,7 @@ function applyWorld(world){
   let p=players&&players.find(q=>q.id===data.id),isNew=!p;
   if(!p){p=makePlayer(data.id,data.x,data.y,data.angle,local);p.x=data.x;p.y=data.y;p.trail=[];}
   p.name=String(data.name||('Игрок '+data.id)).slice(0,18);
+   p.skin=normalizeSkin(data.skin);
   p.targetAngle=Number.isFinite(data.targetAngle)?data.targetAngle:data.angle;
   p.netX=data.x;p.netY=data.y;
   p.alive=!!data.alive;p.outside=!!data.outside;p.isBot=!!data.isBot;
@@ -355,14 +358,14 @@ function ensureRosterPlayers(){
   const existing=players.find(p=>p.id===slot);
   if(existing){
    if(existing.isBot)addedHuman=true;
-   existing.name=entry.name||existing.name;existing.isBot=false;
+   existing.name=entry.name||existing.name;existing.isBot=false;existing.skin=normalizeSkin(existing.skin||'explorer');
    existing.isHuman=slot===onlineSlot;existing.isRemote=slot!==onlineSlot;
    existing.speed=(existing.isHuman?130:95)*SCALE;
    existing.alive=true;existing.outside=false;existing.trail=[];existing.homeTarget=null;
    continue;
   }
   const spawn=findFreeSpawn(slot),p=makePlayer(slot,spawn.x,spawn.y,spawn.angle,false);
-  addedHuman=true;p.name=entry.name||('Игрок '+slot);p.isRemote=true;p.isBot=false;p.isHuman=false;
+  addedHuman=true;p.name=entry.name||('Игрок '+slot);p.skin='explorer';p.isRemote=true;p.isBot=false;p.isHuman=false;
   seedBase(slot,spawn.x,spawn.y,48*SCALE);players.push(p);terrainDirty=true;
  }
  if(addedHuman){gameFinished=false;gameStarted=true;document.getElementById('resultOverlay').classList.remove('show');}
@@ -382,6 +385,7 @@ function connectOnline(){
     onlinePlayerId=packet.playerId;onlineSlot=packet.slot||1;onlineIsHost=String(packet.hostId||'')===onlinePlayerId;
     roomRoster=Array.isArray(packet.players)?packet.players:[];onlineCount=roomRoster.length;setOnlineStatus(String(onlineCount));
     const savedColor=localStorage.getItem('territoryPlayerColor');if(typeof savedColor==='string'&&/^#[0-9a-f]{6}$/i.test(savedColor)){if(onlineIsHost)COLORS[onlineSlot]=savedColor;else sendPacket({type:'color_update',color:savedColor});}
+    if(onlineIsHost){const own=players&&players.find(p=>p.id===onlineSlot);if(own)own.skin=normalizeSkin(selectedSkin);}else sendPacket({type:'skin_update',skin:normalizeSkin(selectedSkin)});
     if(packet.snapshot){if(applyWorld(packet.snapshot))requestAnimationFrame(hideLoading);}
     else if(onlineIsHost&&pendingStart){if(!land)createArena();else{ensureRosterPlayers();sendWorldSnapshot(true);}requestAnimationFrame(hideLoading);}
     else if(!onlineIsHost)sendPacket({type:'request_snapshot'});
@@ -396,7 +400,10 @@ function connectOnline(){
     if(packet.type==='restart_request'){const entry=roomRoster.find(r=>r.playerId===packet.playerId);if(entry)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}else if(!land){createArena();}else{ensureRosterPlayers();const entry=roomRoster.find(r=>r.playerId===packet.playerId),target=entry&&players.find(p=>p.id===entry.slot);if(target&&!target.alive)respawnPlayer(entry.slot);else sendWorldSnapshot(true);}
    }else if(packet.type==='player_input'&&onlineIsHost&&players){
     const rosterEntry=roomRoster.find(r=>r.playerId===packet.playerId);const p=rosterEntry&&players.find(q=>q.id===rosterEntry.slot);if(p&&p.alive&&Number.isFinite(packet.angle))p.targetAngle=packet.angle;
-   }else if(packet.type==='color_update'&&onlineIsHost){
+   }else if(packet.type==='skin_update'&&onlineIsHost){
+     const entry=roomRoster.find(r=>r.playerId===packet.playerId),p=entry&&players&&players.find(q=>q.id===entry.slot);
+     if(p){p.skin=normalizeSkin(packet.skin);sendWorldSnapshot(true);}
+    }else if(packet.type==='color_update'&&onlineIsHost){
     const entry=roomRoster.find(r=>r.playerId===packet.playerId),color=packet.color;
     if(entry&&typeof color==='string'&&/^#[0-9a-f]{6}$/i.test(color)){COLORS[entry.slot]=color;terrainDirty=true;sendWorldSnapshot(true);}
    }else if(packet.type==='players_state'&&!onlineIsHost&&Array.isArray(packet.players)){
@@ -406,7 +413,7 @@ function connectOnline(){
      const p=players&&players.find(q=>q.id===data.id);if(!p)continue;
      if(Number.isFinite(data.x))p.netX=data.x;if(Number.isFinite(data.y))p.netY=data.y;
      if(Number.isFinite(data.angle))p.netAngle=data.angle;if(Number.isFinite(data.targetAngle))p.targetAngle=data.targetAngle;
-     if(typeof data.alive==='boolean')p.alive=data.alive;if(typeof data.outside==='boolean')p.outside=data.outside;
+     if(typeof data.alive==='boolean')p.alive=data.alive;if(typeof data.outside==='boolean')p.outside=data.outside;if(typeof data.skin==='string')p.skin=normalizeSkin(data.skin);
      if(data.outside===false)p.trail=[];
      else if(Array.isArray(data.trail))p.trail=unpackTrail(data.trail);
      if(data.id===onlineSlot){player=p;if(!p.alive&&!gameFinished)showGameResult(false);}
@@ -426,7 +433,7 @@ function sendPlayerState(){
  if(!onlineIsHost||!gameStarted||!onlineSocket||onlineSocket.readyState!==WebSocket.OPEN)return;
  const now=performance.now();if(now-lastPlayerStateAt<90)return;lastPlayerStateAt=now;
  const includeTrails=now-lastTrailStateAt>=150;if(includeTrails)lastTrailStateAt=now;
- sendPacket({type:'players_state',colors:{...COLORS},players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,...(includeTrails?{trail:packTrail(p.trail)}:{})}))});
+ sendPacket({type:'players_state',colors:{...COLORS},players:players.map(p=>({id:p.id,x:p.x,y:p.y,angle:p.angle,targetAngle:p.targetAngle,alive:p.alive,outside:p.outside,skin:normalizeSkin(p.skin),...(includeTrails?{trail:packTrail(p.trail)}:{})}))});
 }
 function sendOnlineInput(angle){if(!onlineIsHost)sendPacket({type:'input',angle});}
 
@@ -540,7 +547,7 @@ function capture(id,path){
  updateScore();terrainDirty=true;playSound('capture');checkForWin();
 }
 function makePlayer(id,x,y,angle,isHuman=false){
- return{id,name:names[id]||('Игрок '+id),x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
+ return{id,name:names[id]||('Игрок '+id),skin:isHuman?normalizeSkin(selectedSkin):'explorer',x,y,angle,speed:(isHuman?130:95)*SCALE,trail:[],outside:false,turn:0,think:.25+Math.random()*.5,targetAngle:angle,isHuman,alive:true,homeTarget:null};
 }
 function createArena(){
  currentRoundId=Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);resultRecorded=false;
@@ -919,7 +926,7 @@ function draw(){
    ctx.shadowBlur=0;ctx.lineWidth=5;ctx.strokeStyle='#ffffff';ctx.stroke();
    ctx.font='76px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🤖',0,Math.sin(frame*.22)*3);
    ctx.restore();
-  }else if(p.isHuman&&selectedSkin!=='explorer'){
+  }else if(!p.isBot&&normalizeSkin(p.skin)!=='explorer'){
    const skinEmoji={robot:'🤖',fox:'🦊',ninja:'🥷',astronaut:'👨‍🚀',dragon:'🐉',shark:'🦈',panda:'🐼',king:'👑',alien:'👽',tiger:'🐯',penguin:'🐧',unicorn:'🦄',wolf:'🐺',bee:'🐝',ghost:'👻',monkey:'🐵'};
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
    const bob=Math.sin(frame*.22)*3;
@@ -927,7 +934,7 @@ function draw(){
    ctx.beginPath();ctx.arc(0,0,43,0,Math.PI*2);ctx.fillStyle=COLORS[p.id];ctx.fill();
    ctx.shadowBlur=0;ctx.lineWidth=5;ctx.strokeStyle='#ffffff';ctx.stroke();
    ctx.font='76px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-   ctx.fillText(skinEmoji[selectedSkin]||'🐱',0,bob);ctx.restore();
+   ctx.fillText(skinEmoji[normalizeSkin(p.skin)]||'🐱',0,bob);ctx.restore();
   }else if(p.isHuman){
    // Explorer kitten: layered, shaded 3D-style character with goggles and backpack.
    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
@@ -1146,7 +1153,8 @@ menuSoundToggle.addEventListener('click',()=>{soundButton?.click();syncMenuSound
 document.querySelectorAll('.skin-choice').forEach(button=>{
  button.classList.toggle('selected',button.dataset.skin===selectedSkin);
  button.addEventListener('click',()=>{
-  selectedSkin=button.dataset.skin;localStorage.setItem('territorySkin',selectedSkin);playSound('click');
+  selectedSkin=normalizeSkin(button.dataset.skin);localStorage.setItem('territorySkin',selectedSkin);playSound('click');
+  if(gameStarted&&player){player.skin=selectedSkin;if(onlineIsHost)sendWorldSnapshot(true);else sendPacket({type:'skin_update',skin:selectedSkin});}
   document.querySelectorAll('.skin-choice').forEach(b=>b.classList.toggle('selected',b===button));refreshSkinPreview();
  });
 });
