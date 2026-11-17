@@ -137,6 +137,16 @@ export class GameRoom extends DurableObject {
       events.push({eventId:packet.eventId,uid:sender.uid||sender.playerId,name:sender.name||"Игрок",avatar:sender.avatar||"",won:packet.won===true,score:Math.max(0,Math.min(100,Math.round(Number(packet.score)||0))),at:Date.now()});
       await this.ctx.storage.put("leaderboardEvents",events); return;
     }
+    if (packet.type === "skin_update") {
+      const allowedSkins = new Set(["explorer","fox","ninja","astronaut","dragon","shark","panda","king","alien","tiger","penguin","unicorn","wolf","bee","ghost","monkey"]);
+      if (sender.isHost === true || typeof packet.skin !== "string" || !allowedSkins.has(packet.skin)) return;
+      const host = this.hostSocket();
+      if (host && host !== socket) {
+        try { host.send(JSON.stringify({ type: "skin_update", playerId: sender.playerId, skin: packet.skin })); } catch {}
+      }
+      return;
+    }
+
     if (packet.type === "color_update") {
       if (sender.isHost === true || typeof packet.color !== "string" || !/^#[0-9a-f]{6}$/i.test(packet.color)) return;
       const host = this.hostSocket();
